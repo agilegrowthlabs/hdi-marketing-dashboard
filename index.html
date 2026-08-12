@@ -40,16 +40,16 @@ body.preview #pvBar{display:block}
 .pill.part .dot{background:#B4890A}
 .pill.off .dot{background:var(--warn)}
 .pill button{border:0;background:transparent;padding:0;margin-left:3px;color:var(--teal);font-family:var(--m);font-size:9.5px;text-transform:uppercase;letter-spacing:.07em}
+.seg{display:inline-flex;border:1px solid var(--border);border-radius:5px;overflow:hidden;background:#fff}
+.seg button{border:0;background:transparent;padding:6px 11px;font-family:var(--m);font-size:9.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--grey);border-left:1px solid var(--border)}
+.seg button:first-child{border-left:0}
+.seg button[aria-pressed=true]{background:var(--teal);color:#fff}
 .tog{display:inline-flex;align-items:center;gap:7px;background:#fff;border:1px solid var(--border);border-radius:5px;padding:6px 11px;font-family:var(--m);font-size:9.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--grey)}
 .tog i{width:24px;height:14px;border-radius:7px;background:var(--track);position:relative;transition:background .15s;flex:none}
 .tog i::after{content:"";position:absolute;top:2px;left:2px;width:10px;height:10px;border-radius:50%;background:#fff;transition:transform .15s}
 .tog[aria-pressed=true]{border-color:var(--warn);color:var(--warn)}
 .tog[aria-pressed=true] i{background:var(--warn)}
 .tog[aria-pressed=true] i::after{transform:translateX(10px)}
-.rng{display:inline-flex;gap:2px;background:#fff;border:1px solid var(--border);border-radius:5px;padding:3px}
-.rng button{border:0;background:transparent;border-radius:3px;padding:5px 9px;font-family:var(--m);font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--grey)}
-.rng button:hover{color:var(--ink)}
-.rng button.on{background:var(--teal);color:#fff}
 
 h1{font-size:clamp(22px,3.2vw,32px);font-weight:500;letter-spacing:-.03em;line-height:1.07;margin:10px 0 6px;max-width:28ch}
 .sub{color:var(--grey);margin:0 0 16px;max-width:82ch;font-size:13.5px}
@@ -171,8 +171,7 @@ svg.cv{width:100%;height:auto;display:block;overflow:visible}
   <span class="sp"></span>
   <span class="pill" id="built"><span class="dot"></span><span id="builtTxt">Loading…</span></span>
   <span class="pill" id="feed"><span class="dot"></span><span id="feedTxt">—</span><button id="refresh">refresh</button></span>
-  <span class="rng" id="rng"><button data-r="7">7d</button><button data-r="30" class="on">30d</button><button data-r="90">90d</button></span>
-  <button class="tog" id="pvTog" aria-pressed="false"><i></i>Preview layout</button>
+  <span class="seg" id="rangeSeg" role="group" aria-label="Time range"><button data-d="7">7d</button><button data-d="30" aria-pressed="true">30d</button><button data-d="90">90d</button></span><button class="tog" id="pvTog" aria-pressed="false"><i></i>Preview layout</button>
 </div>
 
 <h1>Marketing performance, one source of truth.</h1>
@@ -204,49 +203,9 @@ svg.cv{width:100%;height:auto;display:block;overflow:visible}
 (function(){
 "use strict";
 var API="/api/snapshots", BM_URL="/data/benchmarks.json";
-var S=null, BM=null, PV=false, RANGE=30, HIST={ga4:[],clarity:[],linkedin:[]};
+var S=null, BM=null, PV=false, DAYS=30, HIST={ga4:null,clarity:null,linkedin:null,ga4_agg:null};
 
 function $(i){return document.getElementById(i);}
-
-/* ---------- history: /api/snapshots?history=<source>&days=N ----------
-   Real shape is { source, days:<int requested>, rows:[ {date, pulled_at, data:{...}} ] }.
-   Iterate rows (NOT .days — that's the integer). Skip stub rows. */
-function normHist(payload, source){
-  var rows=(payload&&payload.rows)||[];
-  var live=rows.filter(function(r){return r&&r.data&&r.data.mode!=="stub"&&!r.data.gap;});
-  if(source==="ga4"){
-    var byDate={};
-    live.forEach(function(r){
-      (r.data.days||[]).forEach(function(d){
-        var ex=byDate[d.date];
-        // prefer a settled row over a provisional one; then the later pulled_at
-        if(!ex || (ex.provisional&&!d.provisional) ||
-           (ex.provisional===d.provisional && (r.pulled_at||"")>(ex._pa||""))){
-          byDate[d.date]={date:d.date,provisional:!!d.provisional,sessions:d.sessions,
-            engaged:d.engaged,key_events:d.key_events,_pa:r.pulled_at};
-        }
-      });
-    });
-    return Object.keys(byDate).sort().map(function(k){return byDate[k];});
-  }
-  // clarity / linkedin: one point per snapshot date, latest pulled_at wins (no date field to sum)
-  var byD={};
-  live.forEach(function(r){
-    var ex=byD[r.date];
-    if(!ex || (r.pulled_at||"")>(ex._pa||"")) byD[r.date]={date:r.date,data:r.data,_pa:r.pulled_at};
-  });
-  return Object.keys(byD).sort().map(function(k){return byD[k];});
-}
-function fetchHistory(source){
-  return fetch(API+"?history="+source+"&days="+RANGE,{cache:"no-store"})
-    .then(function(r){return r.ok?r.json():null;})
-    .then(function(p){return p?normHist(p,source):[];})
-    .catch(function(){return [];});
-}
-function refreshHistories(){
-  return Promise.all([fetchHistory("ga4"),fetchHistory("clarity"),fetchHistory("linkedin")])
-    .then(function(a){HIST.ga4=a[0];HIST.clarity=a[1];HIST.linkedin=a[2];});
-}
 function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
 function full(v){return (v==null)?"—":"$"+Math.round(v).toLocaleString("en-US");}
 function money(v){if(v==null)return "—";if(Math.abs(v)>=1e6)return "$"+(v/1e6).toFixed(2)+"M";if(Math.abs(v)>=1000)return "$"+Math.round(v/1000)+"k";return "$"+Math.round(v);}
@@ -302,7 +261,13 @@ function PREVIEW(){
   for(i=0;i<34;i++){base+=(r()-.48)*3.4;
     cl.push({date:days[days.length-34+i].date,scroll_depth:Math.round(base*10)/10,
       rage_clicks:Math.round(4+r()*13),dead_clicks:Math.round(2+r()*9),quick_backs:Math.round(8+r()*19)});}
-  return {ga4:days,clarity:cl};
+  return {ga4:days.map(function(d){return {date:d.date,provisional:d.provisional,
+    sessions:d.sessions,engaged:d.engagedSessions,key_events:d.keyEvents,
+    engagement_seconds:Math.round(d.sessions*47),new_users:Math.round(d.totalUsers*.62),total_users:d.totalUsers};}),
+    clarity:cl.map(function(x){return {date:x.date,metrics:{scroll_depth:x.scroll_depth}};}),
+    clarityMetrics:{traffic:8420,engagement_time:63,scroll_depth:cl[cl.length-1].scroll_depth,
+      rage_clicks:cl[cl.length-1].rage_clicks,dead_clicks:cl[cl.length-1].dead_clicks,
+      quickback_clicks:cl[cl.length-1].quick_backs,script_errors:0}};
 }
 
 /* ---------- chart with band + benchmark ---------- */
@@ -448,138 +413,240 @@ function pipeline(){
   $("p-pipe").innerHTML=h;
 }
 
+/* Clarity's live metrics{} nests each figure ({scroll_depth:{averageScrollDepth},
+   rage_clicks:{sessionsWithMetricPercentage,...}, traffic:{totalSessionCount,...}, ...})
+   and some values arrive as strings. The synthetic preview shape is already flat.
+   Normalise BOTH to flat numbers so KPIs and the trend line never receive an object. */
+function claritySize(mo){
+  if(!mo||typeof mo!=="object")return mo;
+  function pick(o,k){
+    if(o==null)return null;
+    if(typeof o==="object"){var n=Number(o[k]);return (n===n)?n:null;}
+    var f=Number(o);return (f===f)?f:null;
+  }
+  return {
+    scroll_depth:     pick(mo.scroll_depth,"averageScrollDepth"),
+    rage_clicks:      pick(mo.rage_clicks,"sessionsWithMetricPercentage"),
+    dead_clicks:      pick(mo.dead_clicks,"sessionsWithMetricPercentage"),
+    quickback_clicks: pick(mo.quickback_clicks,"sessionsWithMetricPercentage"),
+    script_errors:    pick(mo.script_errors,"sessionsWithMetricPercentage"),
+    traffic:          pick(mo.traffic,"totalSessionCount"),
+    engagement_time:  pick(mo.engagement_time,"activeTime")
+  };
+}
+
 /* ================= WEBSITE ================= */
 function website(){
   var g=S.sources.ga4,c=S.sources.clarity,h='';
-  var gd, cd, clatest, cwin;
-  if(PV){
-    var p=PREVIEW();
-    gd=p.ga4.map(function(x){return {date:x.date,provisional:x.provisional,sessions:x.sessions,engaged:x.engagedSessions,key_events:x.keyEvents};});
-    cd=p.clarity.map(function(x){return {date:x.date,scroll:x.scroll_depth,rage:Math.round(x.rage_clicks/64*100),sessions:60};});
-    clatest={scroll:cd[cd.length-1].scroll,rage:cd[cd.length-1].rage,dead:9,sessions:1240,bots:0};
-    cwin=1;
-  } else {
-    gd=(HIST.ga4||[]).slice(-RANGE);
-    if(!gd.length && mode(g)==="live" && g.data && g.data.days){        // fallback to current snapshot
-      gd=g.data.days.map(function(d){return {date:d.date,provisional:d.provisional,sessions:d.sessions,engaged:d.engaged,key_events:d.key_events};});
-    }
-    cd=(HIST.clarity||[]).map(function(r){var m=(r.data&&r.data.metrics)||{};return {date:r.date,
-      scroll:(m.scroll_depth||{}).averageScrollDepth,
-      rage:(m.rage_clicks||{}).sessionsWithMetricPercentage,
-      sessions:Number((m.traffic||{}).totalSessionCount||0)};});
-    var cm=(c&&c.data&&c.data.metrics)||null;
-    if(cm)clatest={scroll:(cm.scroll_depth||{}).averageScrollDepth,
-      rage:(cm.rage_clicks||{}).sessionsWithMetricPercentage,
-      dead:(cm.dead_clicks||{}).sessionsWithMetricPercentage,
-      sessions:Number((cm.traffic||{}).totalSessionCount||0),
-      bots:Number((cm.traffic||{}).totalBotSessionCount||0)};
-    cwin=(c&&c.data&&c.data.window_days)||null;
+  var gd=null,cm=null,cHist=null;
+  if(PV){var p=PREVIEW();gd=p.ga4;cm=p.clarityMetrics;cHist=p.clarity;}
+  else{
+    if(mode(g)==="live")gd=(g.data&&g.data.days)||null;
+    if(mode(c)==="live"){cm=(c.data&&c.data.metrics)||null;cHist=HIST.clarity;}
+    if(HIST.ga4&&HIST.ga4.length)gd=HIST.ga4;
   }
 
-  // ---- GA4 ----
+  /* ---------- GA4 ---------- */
   if(gd&&gd.length){
     var sum=function(k){return gd.reduce(function(a,x){return a+(x[k]||0);},0);};
-    var sess=sum("sessions"),eng=sum("engaged"),ke=sum("key_events");
     var prov=gd.filter(function(x){return x.provisional;}).length;
+    var sess=sum("sessions"),eng=sum("engaged"),ke=sum("key_events");
     var bmC=BM&&BM.website_visitor_to_lead_pct;
+    var v2l = (ke>0&&sess>0) ? (ke/sess*100).toFixed(2)+"%" : "—";
     h+='<div class="kpis">'+
-      kpi("SESSIONS",num(sess),gd.length+" day"+(gd.length===1?"":"s")+" in range",null,sp())+
-      kpi("ENGAGED SESSIONS",num(eng),sess?Math.round(eng/sess*100)+"% of sessions":"",null,sp())+
-      kpi("KEY EVENTS",ke?num(ke):"—",ke?"conversions":"none marked in GA4",null,mix(sp(),{warn:!ke}))+
-      kpi("VISITOR TO LEAD",ke?((ke/sess*100).toFixed(2)+"%"):"—",
-          bmC?("benchmark "+bmC.industry_low+"–"+bmC.industry_high+"%"):"",
-          ke?(prov?prov+" days provisional":""):"blocked on key events — Adrian/Rob",mix(sp(),{hi:true}))+
+      kpi("SESSIONS",num(sess),gd.length+" days in range",null,sp())+
+      kpi("ENGAGED SESSIONS",num(eng),sess?(Math.round(eng/sess*100)+"% of sessions"):"",null,sp())+
+      kpi("KEY EVENTS",ke>0?num(ke):"—",ke>0?"conversions":"none configured in GA4",
+          ke>0?"":"Adrian / Rob own this",mix(sp(),{warn:ke===0}))+
+      kpi("VISITOR TO LEAD",v2l,
+          bmC?("reference "+bmC.industry_low+"–"+bmC.industry_high+"%"):"",
+          ke>0?(prov?prov+" days provisional":""):"blocked on key events",mix(sp(),{hi:true}))+
     '</div>';
+
+    if(ke===0){
+      h+='<div class="card" style="margin-bottom:12px"><div class="cb">'+
+        '<div class="foot warn" style="margin:0">GA4 is returning <b>zero key events</b>, so visitor-to-lead shows a dash rather than 0.00%. '+
+        'Nothing is broken — no conversions have been marked as key events in GA4. Until form submits are configured, this metric cannot be computed. '+
+        'A 0.00% here would be a false claim that nobody converts.</div></div></div>';
+    }
+
     var t=trend(gd.map(function(x){return {label:(x.date||"").slice(5),v:x.sessions};}));
-    h+='<div class="card"><div class="ch"><h3>Sessions · last '+(PV?90:RANGE)+' days</h3><span class="note">grey band is the usual range</span>'+srcTag(g,"GA4")+'</div><div class="cb">'+
-      (t?t.svg:'<div class="foot">Building history — a trend needs at least 2 days and GA4 has '+gd.length+' live so far. It fills in as the daily pull runs.</div>')+
-      (t?'<div class="foot'+(gd[gd.length-1].sessions>=t.lo&&gd[gd.length-1].sessions<=t.hi?"":" warn")+'">'+
-        (gd[gd.length-1].sessions>=t.lo&&gd[gd.length-1].sessions<=t.hi
-          ? "The latest day sits inside the normal range, so the movement is indistinguishable from ordinary variation."
-          : "The latest day sits outside the usual range — worth a look, but outside-the-band means unusual, not explained.")+'</div>':"")+
-      (prov?'<div class="foot warn">'+prov+' most recent day(s) provisional — GA4 settles over ~48h and is re-pulled.</div>':"")+
+    var lastV=gd[gd.length-1].sessions;
+    h+='<div class="card"><div class="ch"><h3>Sessions over time</h3>'+
+      '<span class="note">grey band is the usual range</span>'+srcTag(g,"GA4")+'</div><div class="cb">'+
+      (t?t.svg:building("GA4",gd.length))+
+      (t?'<div class="foot'+(lastV>=t.lo&&lastV<=t.hi?"":" warn")+'">'+
+        (lastV>=t.lo&&lastV<=t.hi
+          ? "The latest day sits inside the normal range, so this movement is indistinguishable from ordinary variation. Reporting it as progress or decline would be reading a pattern into noise."
+          : "The latest day sits outside the usual range — worth investigating, but outside-the-band means unusual, not explained.")+'</div>':"")+
+      (prov?'<div class="foot warn">The '+prov+' most recent days are provisional. GA4 figures settle over roughly 48 hours and get re-pulled — do not quote them as final.</div>':"")+
       '</div></div>';
+
+    var agg=(!PV&&HIST.ga4_agg)||null;
+    var chans=agg?agg.channels:((!PV&&g.data&&g.data.channels)||[]);
+    if(chans.length){
+      var byCh={};chans.forEach(function(x){byCh[x.channel]=(byCh[x.channel]||0)+(x.sessions||0);});
+      var chArr=Object.keys(byCh).map(function(k){return [k,byCh[k]];}).sort(function(a,b){return b[1]-a[1];});
+      var chNote=agg?(DAYS+" day range"):"latest snapshot";
+      h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Channels</h3><span class="note">'+chNote+'</span>'+srcTag(g,"GA4")+'</div><div class="cb">'+
+        bars(chArr.map(function(x,i){return [x[0],x[1],i===0?"var(--lime)":"var(--sage)"];}))+'</div></div>';
+    }
+    var tp=agg?agg.top_pages:((!PV&&g.data&&g.data.top_pages)||[]);
+    if(tp.length){
+      h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Top pages</h3>'+
+        '<span class="note">latest snapshot, not the range</span>'+srcTag(g,"GA4")+'</div><div class="cb">'+
+        bars(tp.slice(0,8).map(function(x,i){return [x.path,x.views,i===0?"var(--lime)":"var(--sage)"];}))+
+        '</div></div>';
+    }
   } else {
+    var gm=mode(g);
     h+='<div class="card"><div class="ch"><h3>Website · GA4</h3>'+srcTag(g,"GA4")+'</div><div class="cb">'+
-      empty("GA4 is not returning live data yet","No live GA4 payload in the feed for this range. Turn on <b>Preview layout</b> to see how this tab looks populated.")+
+      empty(gm==="stub"?"This snapshot predates GA4 going live":"GA4 is not returning data",
+        gm==="stub"
+        ? "The snapshot being served was built "+esc(ago(S.built_at))+" and reports <code>mode: \"stub\"</code>, meaning it predates GA4's credentials being added. The next scheduled run at 10:00 UTC writes a live rollup — no action needed.<br><br>A snapshot is not rewritten when an environment variable changes; a later run has to replace it."
+        : "No GA4 payload in the feed.")+
       '</div></div>';
   }
 
-  // ---- Clarity (a trailing-window aggregate object, one point per stored day) ----
-  if(clatest){
-    var human=clatest.sessions-(clatest.bots||0);
+  /* ---------- Clarity ---------- */
+  if(cm)cm=claritySize(cm);
+  if(cm&&Object.keys(cm).length&&(cm.scroll_depth!=null||cm.traffic!=null||cm.rage_clicks!=null)){
+    var days=(cHist&&cHist.length)||null;
     h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Behaviour · Clarity</h3>'+
-      '<span class="note">'+(cwin?cwin+"-day window · ":"")+cd.length+' day'+(cd.length===1?"":"s")+' stored</span>'+srcTag(c,"Clarity")+'</div><div class="cb">'+
+      '<span class="note">'+(days?days+' days in our database':'latest window')+'</span>'+srcTag(c,"Clarity")+'</div><div class="cb">'+
       '<div class="kpis" style="margin-bottom:12px">'+
-        kpi("SESSIONS",num(clatest.sessions),(clatest.bots?num(clatest.bots)+" bot · "+num(human)+" human":"latest window"),null,sp())+
-        kpi("SCROLL DEPTH",clatest.scroll!=null?(Math.round(clatest.scroll*10)/10)+"%":"—","average",null,sp())+
-        kpi("RAGE CLICKS",clatest.rage!=null?clatest.rage+"%":"—","of sessions",null,mix(sp(),{warn:clatest.rage>10}))+
-        kpi("DAYS RETAINED",String(cd.length||1),"stored beyond the 3-day API window",null,mix(sp(),{hi:true}))+
+        kpi("SCROLL DEPTH",cm.scroll_depth!=null?cm.scroll_depth+"%":"—","how far people read",null,sp())+
+        kpi("RAGE CLICKS",cm.rage_clicks!=null?cm.rage_clicks+"%":"—","of sessions · frustration signal",null,sp())+
+        kpi("DEAD CLICKS",cm.dead_clicks!=null?cm.dead_clicks+"%":"—","of sessions · clicks that do nothing",null,sp())+
+        kpi("QUICK BACKS",cm.quickback_clicks!=null?cm.quickback_clicks+"%":"—","of sessions · landed and left",null,sp())+
+        kpi("DAYS STORED",days?String(days):"—","beyond the 3-day API window",null,mix(sp(),{hi:true}))+
       '</div>'+
-      (function(){var t2=trend(cd.map(function(x){return {label:(x.date||"").slice(5),v:x.scroll};}),{fmt:function(v){return (Math.round(v*10)/10)+"%";}});
-        return t2?'<div class="foot" style="margin-bottom:8px">Scroll depth · last '+(PV?34:RANGE)+' days</div>'+t2.svg
-                 :'<div class="foot">Building history — Clarity has '+(cd.length||1)+' stored day(s); the scroll-depth trend fills in daily.</div>';})()+
-      '<div class="foot ok">Clarity serves only 3 days via its API. Everything beyond that exists solely because this pipeline stored it — the stored copy is the only copy.</div>'+
+      (cm.engagement_time!=null||cm.traffic!=null?
+        '<table><tbody>'+
+        (cm.traffic!=null?'<tr><td>Sessions</td><td class="n">'+num(cm.traffic)+'</td></tr>':'')+
+        (cm.engagement_time!=null?'<tr><td>Active engagement</td><td class="n">'+num(cm.engagement_time)+'s</td></tr>':'')+
+        (cm.script_errors!=null?'<tr><td>Script errors</td><td class="'+(cm.script_errors?"z":"n")+'">'+cm.script_errors+'% of sessions</td></tr>':'')+
+        '</tbody></table>':'')+
+      (cHist&&cHist.length>1?(function(){
+        var t2=trend(cHist.map(function(x){
+          var m=claritySize(x.metrics||x);
+          return {label:(x.date||"").slice(5),v:m.scroll_depth};
+        }),{fmt:function(v){return v+"%";}});
+        return t2?'<div style="margin-top:12px">'+t2.svg+'</div>':"";
+      })():building("Clarity",days||1))+
+      '<div class="foot ok">Clarity\'s API serves only the last 3 days. Everything beyond that exists solely because this pipeline stored it into our own database — the stored copy is the only copy.</div>'+
       '</div></div>';
   } else {
+    var cmd=mode(c);
     h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Behaviour · Clarity</h3>'+srcTag(c,"Clarity")+'</div><div class="cb">'+
-      empty("Clarity is not returning data","No Clarity payload in the feed. Turn on <b>Preview layout</b> to see this populated.")+
+      empty(cmd==="stub"?"This snapshot predates Clarity going live":"Clarity is not returning data",
+        cmd==="stub"
+        ? "The served snapshot was built "+esc(ago(S.built_at))+" with <code>mode: \"stub\"</code>, so it predates Clarity's credentials being added. The next scheduled run replaces it.<br><br><b>Do not trigger a run manually just to populate this</b> — it spends up to 4 of the 10 daily Clarity API calls for no gain, and the limit cannot be raised."
+        : "No Clarity payload in the feed.")+
       '</div></div>';
   }
   $("p-web").innerHTML=h;
 }
 
+function building(src,n){
+  return '<div class="empty" style="padding:18px"><b>Building history</b><p>'+esc(src)+
+    ' has '+n+' day'+(n===1?'':'s')+' stored so far — not enough for a trend line. '+
+    'This fills in as the daily collector runs. Nothing is wrong.</p></div>';
+}
+
 /* ================= LINKEDIN ================= */
 function linkedin(){
   var li=S.sources.linkedin,h='';
+  var d=(!PV&&li&&li.data)||null;
+  var bm=BM&&BM.linkedin_engagement_rate_pct;
+
   if(PV){
-    var bm=BM&&BM.linkedin_engagement_rate_pct;
     h+='<div class="kpis">'+
-      kpi("TOTAL FOLLOWERS","697","↑ 285% since Aug '24",null,sp())+
-      kpi("ENGAGEMENT RATE","8.5%",bm?("benchmark "+bm.company_page_low+"–"+bm.company_page_high+"%"):"",null,mix(sp(),{ok:true}))+
-      kpi("IMPRESSIONS","3,485","↑ 31.8% QoQ",null,sp())+
-      kpi("UNIQUE VISITORS","526","↑ 21.2% QoQ",null,mix(sp(),{hi:true}))+
+      kpi("TOTAL FOLLOWERS","697","↑ 12 this period",null,sp())+
+      kpi("ENGAGEMENT RATE","8.5%",bm?("reference "+bm.company_page_low+"–"+bm.company_page_high+"%"):"",null,mix(sp(),{ok:true}))+
+      kpi("IMPRESSIONS","3,485","",null,sp())+
+      kpi("UNIQUE VISITORS","526","",null,mix(sp(),{hi:true}))+
     '</div>';
     h+='<div class="card"><div class="ch"><h3>Engagement by post type</h3><span class="note">n = posts published</span>'+tag("samp","Sample · preview")+'</div><div class="cb">'+
       bars([["Carousel · n=5",15,"var(--lime)","15%"],["Job · n=2",11,"var(--sage)","11%"],
             ["Video · n=1",9,"var(--sage)","9%"],["Article · n=5",8.5,"var(--sage)","8.5%"],
             ["Repost · n=3",7.7,"var(--sage)","7.7%"],["Share · n=2",7,"var(--sage)","7%"],
             ["Document · n=1",5.9,"var(--sage)","5.9%"],["Image · n=41",3.6,"var(--taupe)","3.6%"]])+
-      '<div class="foot warn">Formats with n below 8 are directional only — a rate on one or two posts is not a trend.</div></div></div>';
-  } else if(li && li.data && !li.data.gap){
-    // LIVE branch — render an actual upload, mapped to the same layout as preview.
-    var d=li.data, per=d.period||{}, bm=BM&&BM.linkedin_engagement_rate_pct;
-    var er=d.engagement_rate;
-    h+='<div class="kpis">'+
-      kpi("TOTAL FOLLOWERS",num(d.followers_total),d.followers_gained!=null?("+"+num(d.followers_gained)+" this period"):"",null,sp())+
-      kpi("ENGAGEMENT RATE",er!=null?er+"%":"—",
-          bm?("benchmark "+bm.company_page_low+"–"+bm.company_page_high+"%"):"",
-          (bm&&er!=null)?(er>=bm.company_page_low?"at or above benchmark":"below benchmark"):"",
-          mix(sp(),{ok:!(bm&&er!=null&&er<bm.company_page_low),warn:(bm&&er!=null&&er<bm.company_page_low)}))+
-      kpi("IMPRESSIONS",num(d.impressions),"",null,sp())+
-      kpi("UNIQUE VISITORS",num(d.unique_visitors),"",null,mix(sp(),{hi:true}))+
-    '</div>';
-    h+='<div class="card"><div class="ch"><h3>Engagement this period</h3><span class="note">'+esc((per.start||"?")+" → "+(per.end||"?"))+'</span>'+srcTag(li,"LinkedIn")+'</div><div class="cb">'+
-      bars([["Reactions",d.reactions,"var(--lime)",num(d.reactions)],
-            ["Comments",d.comments,"var(--sage)",num(d.comments)],
-            ["Reposts",d.reposts,"var(--sage)",num(d.reposts)],
-            ["Page views",d.page_views,"var(--taupe)",num(d.page_views)]])+
-      '<div class="foot">Manual upload — this panel is only as fresh as the last POST to <code>/linkedin-upload</code>, carrying period '+esc(per.end||"—")+' rather than a live tag. Post-type breakdown is not in the upload payload, so it is omitted here (visible only in Preview).</div>'+
-      '</div></div>';
-    var lh=(HIST.linkedin||[]).filter(function(r){return r.data&&r.data.followers_total!=null;});
-    if(lh.length>=2){
-      var tl=trend(lh.map(function(r){return {label:(r.date||"").slice(5),v:r.data.followers_total};}));
-      if(tl)h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Followers over time</h3><span class="note">last '+RANGE+' days of uploads</span>'+srcTag(li,"LinkedIn")+'</div><div class="cb">'+tl.svg+'</div></div>';
-    }
-  } else {
+      '<div class="foot warn">Post-type data is not carried by the upload payload — this chart exists in preview only and is deliberately omitted from the live view rather than faked.</div></div></div>';
+    $("p-li").innerHTML=h;return;
+  }
+
+  if(!d){
     h+='<div class="card"><div class="ch"><h3>LinkedIn</h3>'+srcTag(li,"LinkedIn")+'</div><div class="cb">'+
       empty("Nothing has been uploaded yet",
         "The feed reports <code>"+esc((li&&li.error)||"no data")+"</code>.<br><br>"+
-        "LinkedIn is a manual upload on this pipeline. 22 months of history exist in the Q2 deck and none of it is in the system — worth loading all of it, not just the current week, so trends have something to stand on.<br><br>"+
-        "Turn on <b>Preview layout</b> above to see this tab populated.")+
-      '<div class="foot">Because it is a manual upload, this panel carries an upload date rather than a live tag once data lands. That is correct — it is only as fresh as the last upload.</div>'+
+        "LinkedIn is a manual upload. POST a period to <code>/linkedin-upload</code> with the <code>X-Upload-Token</code> header and this tab fills in.<br><br>"+
+        "Turn on <b>Preview layout</b> above to see the target layout.")+
       '</div></div>';
+    $("p-li").innerHTML=h;return;
   }
+
+  /* ---- LIVE BRANCH ---- */
+  var per=d.period||{}, label=(per.start&&per.end)?(per.start+" → "+per.end):"period not stated";
+  var er=d.engagement_rate;
+  var beat = (er!=null&&bm&&bm.company_page_high!=null)?(er/bm.company_page_high):null;
+  var upTag='<span class="tag stub">Manual upload · '+esc(per.end||ago(li.pulled_at))+'</span>';
+
+  h+='<div class="kpis">'+
+    kpi("TOTAL FOLLOWERS",d.followers_total!=null?num(d.followers_total):"—",
+        d.followers_gained!=null?((d.followers_gained>=0?"↑ ":"↓ ")+Math.abs(d.followers_gained)+" this period"):"",
+        esc(label))+
+    kpi("ENGAGEMENT RATE",er!=null?er+"%":"—",
+        bm?("reference "+bm.company_page_low+"–"+bm.company_page_high+"%"):"",
+        beat?("≈"+beat.toFixed(1)+"× a page of this size"):"",
+        {ok:!!(beat&&beat>1)})+
+    kpi("IMPRESSIONS",d.impressions!=null?num(d.impressions):"—",
+        (d.impressions&&d.unique_visitors)?(Math.round(d.impressions/d.unique_visitors*10)/10+" per visitor"):"")+
+    kpi("UNIQUE VISITORS",d.unique_visitors!=null?num(d.unique_visitors):"—",
+        d.page_views!=null?(num(d.page_views)+" page views"):"",null,{hi:true})+
+  '</div>';
+
+  var ints=[["Reactions",d.reactions],["Comments",d.comments],["Reposts",d.reposts],["Page views",d.page_views]];
+  if(ints.some(function(x){return x[1]!=null;})){
+    h+='<div class="kpis">'+ints.map(function(x){
+      return kpi(x[0].toUpperCase(),x[1]!=null?num(x[1]):"—","");
+    }).join("")+'</div>';
+  }
+
+  h+='<div class="grid g23">';
+  if(er!=null&&bm){
+    h+='<div class="card"><div class="ch"><h3>Against benchmark</h3>'+upTag+'</div><div class="cb">'+
+      bars([
+        ["HDI company page",er,"var(--lime)",er+"%"],
+        ["Company page avg",bm.company_page_high,"var(--taupe)",bm.company_page_low+"–"+bm.company_page_high+"%"],
+        ["Personal page avg",bm.personal_page_high,"var(--taupe)",bm.personal_page_low+"–"+bm.personal_page_high+"%"],
+        ["Pages under 1,000",bm.pages_under_1000_high,"var(--taupe)",bm.pages_under_1000_low+"–"+bm.pages_under_1000_high+"%"]
+      ],Math.max(er,bm.personal_page_high,5))+
+      '<div class="foot'+(bm.hdi_target!=null?'':' warn')+'">'+
+      (bm.hdi_target!=null?'Approved target: '+bm.hdi_target+'%':'Shown as reference, not a target — unapproved in benchmarks.json. Rob owns approval.')+
+      '</div></div></div>';
+  }
+
+  var hs=HIST.linkedin;
+  h+='<div class="card"><div class="ch"><h3>Followers over time</h3>'+
+    '<span class="note">'+((hs&&hs.length)||0)+' periods uploaded</span>'+upTag+'</div><div class="cb">'+
+    (function(){
+      if(!hs||hs.length<2)return building("LinkedIn",(hs&&hs.length)||1);
+      var t=trend(hs.map(function(x){
+        var v=x.followers_total!=null?x.followers_total:(x.data&&x.data.followers_total);
+        var lb=(x.period&&x.period.end)||x.date||"";
+        return {label:String(lb).slice(5),v:v};
+      }));
+      return t?t.svg:building("LinkedIn",hs.length);
+    })()+
+    '</div></div></div>';
+
+  h+='<div class="card" style="margin-top:12px"><div class="cb">'+
+    '<div class="foot" style="margin:0">This tab carries an upload date rather than a live tag — it is only as fresh as the last upload. '+
+    'Engagement by post type is omitted because the upload payload carries no post-level data; it is not estimated.'+
+    (hs&&hs.length===1?' Bulk history load needs the engine keyed by <code>period.end</code> first, or every period overwrites into one slot.':'')+
+    '</div></div></div>';
+
   $("p-li").innerHTML=h;
 }
 
@@ -629,7 +696,7 @@ function shell(){
   var red=$("alertRed"),amb=$("alertAmb");
   if(m.clarity==="stub"){
     red.classList.add("on");
-    red.innerHTML='<span class="u">Clarity is losing data right now</span><p>Clarity has never stored anything, and its API serves only the last three days — so everything older than three days is <b>already gone permanently</b>. Unlike GA4 this cannot be backfilled. Set <code>SOURCE_MODE_CLARITY</code> to <code>live</code> today, and request 3 days on the first run rather than 1.</p>';
+    red.innerHTML='<span class="u">This snapshot predates the live switch</span><p>The served snapshot was built '+esc(ago(S.built_at))+' and still reports <code>mode: "stub"</code> for one or more sources — it predates those credentials being added. The next scheduled run at 10:00 UTC writes a live rollup and this clears itself. <b>Do not trigger a run manually to force it</b> — that spends Clarity API calls from a daily limit of 10 that cannot be raised.</p>';
   } else red.classList.remove("on");
 
   if(stub.length||none.length){
@@ -648,16 +715,128 @@ function shell(){
 
 function render(){shell();board();campaigns();pipeline();website();linkedin();benchmarks();}
 
+/* History shape (verified live):
+   { source, days: <integer request param>, rows: [ { date, pulled_at, data: {...} } ] }
+   Each row is a daily SNAPSHOT. Iterate rows; the payload is row.data.
+   row.data.mode === "stub" means that date has no real data — skip it.
+   GA4: the per-day series lives in row.data.days[]. Because GA4 pulls a rolling
+   3-day window, the same date recurs across rows — dedupe by date, preferring a
+   settled row over a provisional one, then the later pulled_at.
+   Clarity: row.data.metrics is an OBJECT, so each row yields one point.
+*/
+function isStub(row){
+  if(!row||!row.data)return true;
+  if(row.data.mode==="stub")return true;
+  return false;
+}
+function newer(a,b){return new Date(a||0).getTime()>new Date(b||0).getTime();}
+function byDateSorted(map){
+  return Object.keys(map).sort().map(function(k){return map[k];});
+}
+
+function normHist(payload,source){
+  if(!payload||!Array.isArray(payload.rows))return null;
+  var rows=payload.rows.filter(function(r){return !isStub(r);});
+  if(!rows.length)return null;
+
+  if(source==="ga4"){
+    var keep={};
+    rows.forEach(function(r){
+      var arr=r.data.days;
+      if(!Array.isArray(arr))return;
+      arr.forEach(function(d){
+        if(!d||!d.date)return;
+        var cur=keep[d.date];
+        if(!cur){keep[d.date]={d:d,pulled:r.pulled_at};return;}
+        var curProv=!!cur.d.provisional, newProv=!!d.provisional;
+        if(curProv&&!newProv){keep[d.date]={d:d,pulled:r.pulled_at};return;}
+        if(curProv===newProv&&newer(r.pulled_at,cur.pulled)){keep[d.date]={d:d,pulled:r.pulled_at};}
+      });
+    });
+    var days=byDateSorted(keep).map(function(x){return x.d;});
+    return days.length?days:null;
+  }
+
+  if(source==="clarity"){
+    var cm={};
+    rows.forEach(function(r){
+      var m=r.data.metrics;
+      if(!m||!Object.keys(m).length)return;
+      var dt=r.date||(r.pulled_at||"").slice(0,10);
+      if(!dt)return;
+      var cur=cm[dt];
+      if(!cur||newer(r.pulled_at,cur.pulled_at))cm[dt]={date:dt,metrics:m,pulled_at:r.pulled_at};
+    });
+    var cl=byDateSorted(cm);
+    return cl.length?cl:null;
+  }
+
+  /* linkedin — each row is one uploaded period */
+  var lk={};
+  rows.forEach(function(r){
+    var d=r.data||{};
+    var dt=(d.period&&d.period.end)||r.date;
+    if(!dt)return;
+    var cur=lk[dt];
+    if(!cur||newer(r.pulled_at,cur.pulled_at)){
+      lk[dt]={date:dt,period:d.period,pulled_at:r.pulled_at,
+        followers_total:d.followers_total,followers_gained:d.followers_gained,
+        engagement_rate:d.engagement_rate,impressions:d.impressions,
+        unique_visitors:d.unique_visitors,data:d};
+    }
+  });
+  var li=byDateSorted(lk);
+  return li.length?li:null;
+}
+
+/* GA4 channels and top_pages aggregated across the selected range,
+   deduped on the same date+key basis so overlapping snapshots don't double-count. */
+function aggGA4(payload){
+  if(!payload||!Array.isArray(payload.rows))return null;
+  var ch={},pg={};
+  payload.rows.filter(function(r){return !isStub(r);}).forEach(function(r){
+    (r.data.channels||[]).forEach(function(x){
+      if(!x||!x.channel||!x.date)return;
+      var k=x.date+"|"+x.channel, cur=ch[k];
+      if(!cur||newer(r.pulled_at,cur.pulled_at))ch[k]={row:x,pulled_at:r.pulled_at};
+    });
+    /* top_pages carries no date field, so it is a snapshot-level rollup rather than
+       a daily row. Summing across snapshots would inflate it — take the latest only. */
+    if(Array.isArray(r.data.top_pages)&&r.data.top_pages.length){
+      if(!pg._at||newer(r.pulled_at,pg._at)){pg._at=r.pulled_at;pg._rows=r.data.top_pages;}
+    }
+  });
+  var chTot={};
+  Object.keys(ch).forEach(function(k){var x=ch[k].row;chTot[x.channel]=(chTot[x.channel]||0)+(x.sessions||0);});
+  var chArr=Object.keys(chTot).map(function(k){return {channel:k,sessions:chTot[k]};})
+    .sort(function(a,b){return b.sessions-a.sessions;});
+  var pgArr=(pg._rows||[]).slice().sort(function(a,b){return (b.views||0)-(a.views||0);});
+  return {channels:chArr,top_pages:pgArr,pages_at:pg._at||null};
+}
+
+function fetchHist(source){
+  return fetch(API+"?history="+source+"&days="+DAYS,{cache:"no-store"})
+    .then(function(r){return r.ok?r.json():null;})
+    .then(function(j){
+      HIST[source]=normHist(j,source);
+      if(source==="ga4")HIST.ga4_agg=aggGA4(j);
+    })
+    .catch(function(){HIST[source]=null;if(source==="ga4")HIST.ga4_agg=null;});
+}
+
 function load(){
   $("feedTxt").textContent="Loading…";
   Promise.all([
     fetch(API,{cache:"no-store"}).then(function(r){if(!r.ok)throw new Error("feed "+r.status);return r.json();}),
     fetch(BM_URL,{cache:"no-store"}).then(function(r){return r.ok?r.json():null;}).catch(function(){return null;})
-  ]).then(function(res){S=res[0];BM=res[1];return refreshHistories();}).then(function(){render();})
+  ]).then(function(res){
+    S=res[0];BM=res[1];
+    return Promise.all([fetchHist("ga4"),fetchHist("clarity"),fetchHist("linkedin")]);
+  }).then(function(){render();})
    .catch(function(e){
     $("feed").className="pill off";$("feedTxt").textContent="Feed unreachable";
     var red=$("alertRed");red.classList.add("on");
-    red.innerHTML='<span class="u">Cannot reach the pipeline</span><p>Could not load <code>'+esc(API)+'</code> ('+esc(e.message)+'). If this site was deployed without <code>netlify.toml</code> beside index.html, the proxy redirect is missing.</p>';
+    red.innerHTML='<span class="u">Cannot reach the pipeline</span><p>Could not load <code>'+esc(API)+'</code> ('+esc(e.message)+'). If this site was deployed without <code>netlify.toml</code> and <code>_redirects</code> beside index.html, the proxy is missing.</p>';
   });
 }
 
@@ -675,15 +854,12 @@ Array.prototype.forEach.call(document.querySelectorAll(".tabs button"),function(
     $("p-"+b.dataset.t).classList.add("on");
   });
 });
-$("refresh").addEventListener("click",load);
-Array.prototype.forEach.call(document.querySelectorAll("#rng button"),function(b){
-  b.addEventListener("click",function(){
-    RANGE=+b.dataset.r;
-    Array.prototype.forEach.call(document.querySelectorAll("#rng button"),function(x){x.classList.remove("on");});
-    b.classList.add("on");
-    if(S)refreshHistories().then(function(){website();linkedin();});
-  });
+document.getElementById("rangeSeg").addEventListener("click",function(e){
+  var b=e.target.closest("[data-d]");if(!b)return;
+  Array.prototype.forEach.call(this.children,function(x){x.setAttribute("aria-pressed","false");});
+  b.setAttribute("aria-pressed","true");DAYS=+b.dataset.d;load();
 });
+$("refresh").addEventListener("click",load);
 load();
 })();
 </script>
