@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HDI · Marketing Performance</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#F6F5F1;--card:#fff;--ink:#1A1A1A;--grey:#5A5A55;--mute:#8A8A82;
+  --border:#E3E1DB;--track:#EDECE7;
+  --teal:#0F5C56;--lime:#C3D82B;--sage:#8ECAC4;--taupe:#A89C8E;
+  --warn:#B0392C;--warnb:#FBEEEC;--tealb:#E7F0EF;--amb:#8A6A10;--ambb:#FCF6E4;
+  --f:"Archivo",system-ui,-apple-system,sans-serif;--m:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--f);font-size:14px;line-height:1.45;-webkit-font-smoothing:antialiased}
+body.preview{background:#FBF3F1}
+button{font-family:inherit;cursor:pointer}
+.wrap{max-width:1320px;margin:0 auto;padding:0 clamp(14px,2.4vw,30px) 70px}
+.u{font-family:var(--m);font-size:9.5px;text-transform:uppercase;letter-spacing:.12em;font-weight:500}
+
+/* preview banner */
+#pvBar{display:none;position:sticky;top:0;z-index:90;background:var(--warn);color:#fff;padding:9px 16px;text-align:center;font-family:var(--m);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;font-weight:600}
+body.preview #pvBar{display:block}
+#pvBar b{color:#FFD9D3}
+
+.hd{padding:22px 0 2px;display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.mark{display:grid;grid-template-columns:9px 9px;grid-template-rows:9px 9px;gap:2px;flex:none}
+.mark i{display:block;border-radius:1px}
+.mark i:nth-child(1),.mark i:nth-child(4){background:var(--teal)}
+.mark i:nth-child(2),.mark i:nth-child(3){background:var(--lime)}
+.brand{font-family:var(--m);font-size:11px;text-transform:uppercase;letter-spacing:.14em;font-weight:600;color:var(--teal)}
+.hd .sp{flex:1}
+.pill{display:inline-flex;align-items:center;gap:7px;background:#fff;border:1px solid var(--border);border-radius:5px;padding:6px 11px;font-family:var(--m);font-size:9.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--grey);white-space:nowrap}
+.pill .dot{width:6px;height:6px;border-radius:50%;background:var(--mute);flex:none}
+.pill.ok .dot{background:var(--teal)}
+.pill.part .dot{background:#B4890A}
+.pill.off .dot{background:var(--warn)}
+.pill button{border:0;background:transparent;padding:0;margin-left:3px;color:var(--teal);font-family:var(--m);font-size:9.5px;text-transform:uppercase;letter-spacing:.07em}
+.tog{display:inline-flex;align-items:center;gap:7px;background:#fff;border:1px solid var(--border);border-radius:5px;padding:6px 11px;font-family:var(--m);font-size:9.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--grey)}
+.tog i{width:24px;height:14px;border-radius:7px;background:var(--track);position:relative;transition:background .15s;flex:none}
+.tog i::after{content:"";position:absolute;top:2px;left:2px;width:10px;height:10px;border-radius:50%;background:#fff;transition:transform .15s}
+.tog[aria-pressed=true]{border-color:var(--warn);color:var(--warn)}
+.tog[aria-pressed=true] i{background:var(--warn)}
+.tog[aria-pressed=true] i::after{transform:translateX(10px)}
+.rng{display:inline-flex;gap:2px;background:#fff;border:1px solid var(--border);border-radius:5px;padding:3px}
+.rng button{border:0;background:transparent;border-radius:3px;padding:5px 9px;font-family:var(--m);font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--grey)}
+.rng button:hover{color:var(--ink)}
+.rng button.on{background:var(--teal);color:#fff}
+
+h1{font-size:clamp(22px,3.2vw,32px);font-weight:500;letter-spacing:-.03em;line-height:1.07;margin:10px 0 6px;max-width:28ch}
+.sub{color:var(--grey);margin:0 0 16px;max-width:82ch;font-size:13.5px}
+
+.alert{border-radius:8px;padding:14px 16px;margin-bottom:14px;display:none}
+.alert.on{display:block}
+.alert.amb{background:var(--ambb);border:1px solid #E3D6A9}
+.alert.amb .u{color:var(--amb)}
+.alert.amb p{color:#5C4708}
+.alert.red{background:var(--warnb);border:1px solid #E8CFCB}
+.alert.red .u{color:var(--warn)}
+.alert.red p{color:#6B241C}
+.alert .u{display:block;margin-bottom:5px}
+.alert p{margin:0;font-size:13px;line-height:1.5}
+.alert code{font-family:var(--m);font-size:12px;background:#fff;border:1px solid currentColor;border-radius:3px;padding:1px 5px;opacity:.85}
+
+.tabs{display:flex;flex-wrap:wrap;gap:2px;background:#fff;border:1px solid var(--border);border-radius:7px;padding:3px;margin-bottom:16px}
+.tabs button{border:0;background:transparent;border-radius:5px;padding:8px 15px;font-size:13.5px;font-weight:600;color:var(--grey)}
+.tabs button:hover{background:var(--bg);color:var(--ink)}
+.tabs button[aria-selected=true]{background:var(--teal);color:#fff}
+
+.card{background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.ch{padding:13px 16px;display:flex;flex-wrap:wrap;gap:9px;align-items:baseline;border-bottom:1px solid var(--track)}
+.ch h3{margin:0;font-size:14.5px;font-weight:700;letter-spacing:-.015em}
+.ch .note{font-size:10.5px;color:var(--mute);font-family:var(--m);letter-spacing:.03em}
+.tag{margin-left:auto;font-family:var(--m);font-size:8.5px;text-transform:uppercase;letter-spacing:.09em;border-radius:3px;padding:3px 7px;display:inline-flex;gap:6px;align-items:center;white-space:nowrap;border:1px solid var(--border);background:var(--bg);color:var(--grey)}
+.tag::before{content:"";width:5px;height:5px;border-radius:50%;background:var(--mute)}
+.tag.live{border-color:#BFDBD6;background:var(--tealb);color:var(--teal)}
+.tag.live::before{background:var(--teal)}
+.tag.stub{border-color:#E3D6A9;background:var(--ambb);color:var(--amb)}
+.tag.stub::before{background:#B4890A}
+.tag.none,.tag.samp{border-color:#E8CFCB;background:var(--warnb);color:var(--warn)}
+.tag.none::before,.tag.samp::before{background:var(--warn)}
+.cb{padding:16px}
+.grid{display:grid;gap:12px;margin-bottom:12px}
+.g23{grid-template-columns:1.5fr 1fr}
+.g2{grid-template-columns:repeat(auto-fit,minmax(320px,1fr))}
+@media(max-width:900px){.g23{grid-template-columns:1fr}}
+
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(176px,1fr));gap:12px;margin-bottom:12px}
+.kpi{background:#fff;border:1px solid var(--border);border-radius:8px;padding:15px 16px;position:relative}
+.kpi.hi{background:var(--teal);border-color:var(--teal)}
+.kpi.sample{border-color:#E8CFCB}
+.kpi.sample::after{content:"SAMPLE";position:absolute;top:8px;right:9px;font-family:var(--m);font-size:7px;letter-spacing:.1em;color:var(--warn);background:var(--warnb);border:1px solid #E8CFCB;border-radius:2px;padding:1px 4px}
+.kpi .k{font-family:var(--m);font-size:9px;text-transform:uppercase;letter-spacing:.1em;font-weight:600;color:var(--teal);display:block;margin-bottom:8px;line-height:1.4;padding-right:44px}
+.kpi.hi .k{color:var(--lime)}
+.kpi .v{font-size:28px;font-weight:600;letter-spacing:-.04em;line-height:1;color:var(--teal);display:block;font-variant-numeric:tabular-nums}
+.kpi.hi .v{color:#fff}
+.kpi .v.sm{font-size:19px}
+.kpi .v.gap{color:var(--mute);font-size:22px}
+.kpi .d{font-size:11.5px;color:var(--teal);display:block;margin-top:8px}
+.kpi.hi .d{color:#BEE0DB}
+.kpi .d.warn{color:var(--warn)}
+.kpi .d.ok{color:var(--teal)}
+.kpi .n{font-family:var(--m);font-size:9.5px;color:var(--mute);display:block;margin-top:4px}
+.kpi.hi .n{color:#88BAB4}
+
+.rows{display:grid;gap:9px}
+.row{display:grid;grid-template-columns:minmax(110px,200px) 1fr auto;gap:11px;align-items:center;font-size:12.5px}
+.row .lb{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tr{height:17px;background:var(--track);border-radius:2px;overflow:hidden;position:relative}
+.tr i{display:block;height:100%;border-radius:2px}
+.tr u{position:absolute;top:-3px;width:2px;height:23px;background:var(--ink);text-decoration:none}
+.row .vv{font-family:var(--m);font-size:11.5px;text-align:right;min-width:56px}
+.row .vv.z{color:var(--warn)}
+.row .vv.ok{color:var(--teal)}
+
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th{font-family:var(--m);font-size:8.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--mute);font-weight:500;text-align:right;padding:7px 8px;border-bottom:1px solid var(--border)}
+th:first-child{text-align:left}
+td{padding:8px;border-bottom:1px solid var(--track);text-align:right;font-variant-numeric:tabular-nums}
+td:first-child{text-align:left}
+tbody tr:last-child td{border-bottom:0}
+tbody tr:hover{background:var(--bg)}
+td.n{font-family:var(--m);font-size:11.5px}
+.z{color:var(--warn);font-family:var(--m);font-size:11px}
+.dsh{color:var(--mute);font-family:var(--m);font-size:11px}
+tr.tot td{border-top:1px solid var(--border);font-weight:700;border-bottom:0}
+
+svg.cv{width:100%;height:auto;display:block;overflow:visible}
+.gl{stroke:var(--track);stroke-width:1}
+.axl{font-family:var(--m);font-size:8px;fill:var(--mute);letter-spacing:.05em}
+.ln{fill:none;stroke:var(--lime);stroke-width:2.5;stroke-linejoin:round}
+.bnd{fill:var(--track);opacity:.8}
+.bmk{stroke:var(--teal);stroke-width:1.5;stroke-dasharray:5 3;fill:none}
+.dt{fill:var(--teal)}
+.vl{font-family:var(--m);font-size:10px;fill:var(--teal);font-weight:600}
+
+.take{background:var(--teal);border-radius:8px;padding:17px 19px;color:#fff}
+.take .u{color:var(--lime);display:block;margin-bottom:8px}
+.take p{margin:0;font-size:13.5px;line-height:1.55}
+.take b{color:var(--lime)}
+.acts{display:grid;gap:13px}
+.act{display:grid;grid-template-columns:13px 1fr auto;gap:10px;align-items:start}
+.act .sq{width:11px;height:11px;background:var(--lime);border-radius:2px;margin-top:4px}
+.act .sq.red{background:var(--warn)}
+.act b{display:block;font-size:13px;font-weight:700;margin-bottom:2px}
+.act span.d{font-size:12px;color:var(--grey);line-height:1.45}
+.act .own{font-family:var(--m);font-size:9.5px;color:var(--teal);white-space:nowrap;padding-top:2px}
+
+.empty{border:1px dashed var(--border);border-radius:7px;padding:24px 20px;text-align:center;background:var(--bg)}
+.empty b{display:block;font-size:15px;font-weight:700;margin-bottom:6px}
+.empty p{margin:0 auto;font-size:12.5px;color:var(--grey);max-width:62ch;line-height:1.55}
+.empty code{font-family:var(--m);font-size:11.5px;background:#fff;border:1px solid var(--border);border-radius:3px;padding:1px 5px}
+.foot{font-family:var(--m);font-size:9.5px;color:var(--mute);letter-spacing:.03em;margin-top:11px;line-height:1.6}
+.foot.warn{color:var(--warn)}
+.foot.ok{color:var(--teal)}
+.pane{display:none}.pane.on{display:block}
+.pgfoot{font-family:var(--m);font-size:9.5px;color:var(--mute);letter-spacing:.03em;margin-top:22px;line-height:1.7;border-top:1px solid var(--border);padding-top:14px}
+</style>
+</head>
+<body>
+<div id="pvBar">Preview mode — <b>every figure on screen is synthetic</b> — for layout review only, nothing here is measured</div>
+<div class="wrap">
+
+<div class="hd">
+  <span class="mark"><i></i><i></i><i></i><i></i></span>
+  <span class="brand">HDI // Marketing Performance</span>
+  <span class="sp"></span>
+  <span class="pill" id="built"><span class="dot"></span><span id="builtTxt">Loading…</span></span>
+  <span class="pill" id="feed"><span class="dot"></span><span id="feedTxt">—</span><button id="refresh">refresh</button></span>
+  <span class="rng" id="rng"><button data-r="7">7d</button><button data-r="30" class="on">30d</button><button data-r="90">90d</button></span>
+  <button class="tog" id="pvTog" aria-pressed="false"><i></i>Preview layout</button>
+</div>
+
+<h1>Marketing performance, one source of truth.</h1>
+<p class="sub">Every figure is read live from the pipeline and tagged with its source. Nothing is estimated — a source with no data shows a dash, never a zero. Benchmarks show as reference until leadership approves them as targets.</p>
+
+<div class="alert red" id="alertRed"></div>
+<div class="alert amb" id="alertAmb"></div>
+
+<div class="tabs" role="tablist">
+  <button role="tab" data-t="board" aria-selected="true">Board</button>
+  <button role="tab" data-t="camp" aria-selected="false">Campaigns</button>
+  <button role="tab" data-t="pipe" aria-selected="false">Pipeline</button>
+  <button role="tab" data-t="web" aria-selected="false">Website</button>
+  <button role="tab" data-t="li" aria-selected="false">LinkedIn</button>
+  <button role="tab" data-t="bm" aria-selected="false">Benchmarks</button>
+</div>
+
+<div class="pane on" id="p-board"></div>
+<div class="pane" id="p-camp"></div>
+<div class="pane" id="p-pipe"></div>
+<div class="pane" id="p-web"></div>
+<div class="pane" id="p-li"></div>
+<div class="pane" id="p-bm"></div>
+
+<div class="pgfoot" id="pgfoot"></div>
+</div>
+
+<script>
+(function(){
+"use strict";
+var API="/api/snapshots", BM_URL="/data/benchmarks.json";
+var S=null, BM=null, PV=false, RANGE=30, HIST={ga4:[],clarity:[],linkedin:[]};
+
+function $(i){return document.getElementById(i);}
+
+/* ---------- history: /api/snapshots?history=<source>&days=N ----------
+   Real shape is { source, days:<int requested>, rows:[ {date, pulled_at, data:{...}} ] }.
+   Iterate rows (NOT .days — that's the integer). Skip stub rows. */
+function normHist(payload, source){
+  var rows=(payload&&payload.rows)||[];
+  var live=rows.filter(function(r){return r&&r.data&&r.data.mode!=="stub"&&!r.data.gap;});
+  if(source==="ga4"){
+    var byDate={};
+    live.forEach(function(r){
+      (r.data.days||[]).forEach(function(d){
+        var ex=byDate[d.date];
+        // prefer a settled row over a provisional one; then the later pulled_at
+        if(!ex || (ex.provisional&&!d.provisional) ||
+           (ex.provisional===d.provisional && (r.pulled_at||"")>(ex._pa||""))){
+          byDate[d.date]={date:d.date,provisional:!!d.provisional,sessions:d.sessions,
+            engaged:d.engaged,key_events:d.key_events,_pa:r.pulled_at};
+        }
+      });
+    });
+    return Object.keys(byDate).sort().map(function(k){return byDate[k];});
+  }
+  // clarity / linkedin: one point per snapshot date, latest pulled_at wins (no date field to sum)
+  var byD={};
+  live.forEach(function(r){
+    var ex=byD[r.date];
+    if(!ex || (r.pulled_at||"")>(ex._pa||"")) byD[r.date]={date:r.date,data:r.data,_pa:r.pulled_at};
+  });
+  return Object.keys(byD).sort().map(function(k){return byD[k];});
+}
+function fetchHistory(source){
+  return fetch(API+"?history="+source+"&days="+RANGE,{cache:"no-store"})
+    .then(function(r){return r.ok?r.json():null;})
+    .then(function(p){return p?normHist(p,source):[];})
+    .catch(function(){return [];});
+}
+function refreshHistories(){
+  return Promise.all([fetchHistory("ga4"),fetchHistory("clarity"),fetchHistory("linkedin")])
+    .then(function(a){HIST.ga4=a[0];HIST.clarity=a[1];HIST.linkedin=a[2];});
+}
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
+function full(v){return (v==null)?"—":"$"+Math.round(v).toLocaleString("en-US");}
+function money(v){if(v==null)return "—";if(Math.abs(v)>=1e6)return "$"+(v/1e6).toFixed(2)+"M";if(Math.abs(v)>=1000)return "$"+Math.round(v/1000)+"k";return "$"+Math.round(v);}
+function num(v){return (v==null)?"—":Math.round(v).toLocaleString("en-US");}
+function ago(iso){if(!iso)return "never";var m=Math.round((Date.now()-new Date(iso).getTime())/60000);
+  if(m<60)return m+"m ago";var h=Math.round(m/60);if(h<48)return h+"h ago";return Math.round(h/24)+"d ago";}
+function tag(k,t){return '<span class="tag '+k+'">'+esc(t)+'</span>';}
+function kpi(k,v,d,n,o){o=o||{};
+  return '<div class="kpi'+(o.hi?" hi":"")+(o.sample?" sample":"")+'"><span class="k">'+esc(k)+'</span>'+
+    '<span class="v'+(o.sm?" sm":"")+(v==="—"?" gap":"")+'">'+v+'</span>'+
+    (d?'<span class="d'+(o.warn?" warn":o.ok?" ok":"")+'">'+esc(d)+'</span>':"")+
+    (n?'<span class="n">'+esc(n)+'</span>':"")+'</div>';}
+function bars(items,max){
+  var mx=max||Math.max.apply(null,items.map(function(i){return i[1]||0;}))||1;
+  return '<div class="rows">'+items.map(function(i){
+    var v=i[1],w=v?Math.max(v/mx*100,0.7):0;
+    return '<div class="row"><span class="lb">'+esc(i[0])+'</span><span class="tr">'+
+      (v?'<i style="width:'+w+'%;background:'+(i[2]||"var(--sage)")+'"></i>':"")+
+      (i[4]!=null?'<u style="left:'+Math.min(i[4]/mx*100,99)+'%"></u>':"")+
+      '</span><span class="vv'+(v?(i[5]||""):" z")+'">'+(i[3]!==undefined?i[3]:(v?num(v):"0"))+'</span></div>';
+  }).join("")+'</div>';}
+function empty(t,b){return '<div class="empty"><b>'+esc(t)+'</b><p>'+b+'</p></div>';}
+function mode(src){
+  if(!src)return "missing";
+  if(src.ok===false)return "error";
+  if(src.data&&src.data.mode==="stub")return "stub";
+  if(!src.data)return "empty";
+  return "live";
+}
+function srcTag(src,label){
+  if(PV)return tag("samp","Sample · preview");
+  var m=mode(src);
+  if(m==="live")return tag("live",label+" live · "+ago(src.pulled_at));
+  if(m==="stub")return tag("stub",label+" · stub mode");
+  return tag("none",label+" · no data");
+}
+function sp(){return PV?{sample:true}:{};}
+function mix(a,b){return Object.assign({},a||{},b||{});}
+
+/* ---------- synthetic preview shapes ---------- */
+var sd=48211;function r(){sd=(sd*1103515245+12345)&0x7fffffff;return sd/0x7fffffff;}
+function PREVIEW(){
+  sd=48211;
+  var days=[],base=980;
+  for(var i=0;i<90;i++){
+    base+=(r()-.45)*26;
+    days.push({date:new Date(Date.now()-(89-i)*864e5).toISOString().slice(0,10),
+      sessions:Math.round(base),engagedSessions:Math.round(base*(.58+r()*.08)),
+      keyEvents:Math.round(base*(.021+r()*.011)),totalUsers:Math.round(base*.86),
+      provisional:i>=88});
+  }
+  var cl=[];base=54;
+  for(i=0;i<34;i++){base+=(r()-.48)*3.4;
+    cl.push({date:days[days.length-34+i].date,scroll_depth:Math.round(base*10)/10,
+      rage_clicks:Math.round(4+r()*13),dead_clicks:Math.round(2+r()*9),quick_backs:Math.round(8+r()*19)});}
+  return {ga4:days,clarity:cl};
+}
+
+/* ---------- chart with band + benchmark ---------- */
+function trend(series,opts){
+  opts=opts||{};
+  var pts=series.filter(function(s){return s.v!=null;});
+  if(pts.length<2)return null;
+  var w=780,h=210,pl=46,pr=16,pt=18,pb=26,iw=w-pl-pr,ih=h-pt-pb;
+  var vs=pts.map(function(p){return p.v;});
+  var mean=vs.reduce(function(a,b){return a+b;},0)/vs.length;
+  var sdv=Math.sqrt(vs.reduce(function(a,b){return a+Math.pow(b-mean,2);},0)/vs.length);
+  var lo=mean-sdv,hi=mean+sdv;
+  var all=vs.concat(opts.benchmark!=null?[opts.benchmark,lo,hi]:[lo,hi]);
+  var mn=Math.min.apply(null,all),mx=Math.max.apply(null,all),spn=(mx-mn)||1;
+  mn-=spn*.1;mx+=spn*.1;spn=mx-mn;
+  var n=series.length;
+  function px(i){return pl+(n<=1?0:i/(n-1)*iw);}
+  function py(v){return pt+ih-(v-mn)/spn*ih;}
+  var s='<rect class="bnd" x="'+pl+'" y="'+py(hi)+'" width="'+iw+'" height="'+Math.max(py(lo)-py(hi),1)+'"/>';
+  for(var g=0;g<=3;g++){var yy=pt+ih*g/3;s+='<line class="gl" x1="'+pl+'" y1="'+yy+'" x2="'+(w-pr)+'" y2="'+yy+'"/>';}
+  if(opts.benchmark!=null){
+    s+='<line class="bmk" x1="'+pl+'" y1="'+py(opts.benchmark)+'" x2="'+(w-pr)+'" y2="'+py(opts.benchmark)+'"/>';
+    s+='<text class="axl" x="'+(pl-6)+'" y="'+(py(opts.benchmark)+3)+'" text-anchor="end" fill="var(--teal)">'+esc(opts.benchmarkLabel||"target")+'</text>';
+  }
+  var d='',started=false;
+  series.forEach(function(p,i){if(p.v==null)return;d+=(started?"L":"M")+px(i)+" "+py(p.v);started=true;});
+  s+='<path class="ln" d="'+d+'"/>';
+  var last=(function(){for(var i=series.length-1;i>=0;i--)if(series[i].v!=null)return i;return -1;})();
+  if(last>=0){
+    s+='<circle class="dt" cx="'+px(last)+'" cy="'+py(series[last].v)+'" r="4"/>';
+    s+='<text class="vl" x="'+px(last)+'" y="'+(py(series[last].v)-11)+'" text-anchor="end">'+
+      (opts.fmt?opts.fmt(series[last].v):num(series[last].v))+'</text>';
+  }
+  var step=Math.max(1,Math.ceil(n/7));
+  for(var t=0;t<n;t+=step)s+='<text class="axl" x="'+px(t)+'" y="'+(h-8)+'" text-anchor="middle">'+esc(series[t].label)+'</text>';
+  return {svg:'<svg class="cv" viewBox="0 0 '+w+' '+h+'" preserveAspectRatio="none">'+s+'</svg>',lo:lo,hi:hi,last:pts[pts.length-1]};
+}
+
+/* ================= BOARD ================= */
+function board(){
+  var hs=S.sources.hubspot,d=(hs&&hs.data)||{},pl=d.pipeline||{},so=d.sourced||{};
+  var camps=d.campaigns||[];
+  var infl=camps.reduce(function(a,c){return a+((c.metrics&&c.metrics.influencedContacts)||0);},0);
+  var bmSrc=BM&&BM.marketing_sourced_pipeline_pct;
+
+  var h='<div class="kpis">'+
+    kpi("OPEN PIPELINE",money(pl.open_pipeline),pl.n_open?("from "+pl.n_open+" open deals"):"",full(pl.open_pipeline),sp())+
+    kpi("CLOSED WON",money(pl.won_amount),pl.n_won?(pl.n_won+" deals"):"",full(pl.won_amount),sp())+
+    kpi("CLOSED LOST",money(pl.lost_amount),pl.n_lost?(pl.n_lost+" deals"):"",full(pl.lost_amount),sp())+
+    kpi("WIN RATE BY VALUE",
+        (pl.won_amount&&pl.lost_amount)?((pl.won_amount/(pl.won_amount+pl.lost_amount))*100).toFixed(1)+"%":"—",
+        (pl.n_won&&pl.n_lost)?("on "+(pl.n_won+pl.n_lost)+" closed deals"):"",
+        (pl.n_won+pl.n_lost)<8?"below reporting threshold":"",mix(sp(),{warn:(pl.n_won+pl.n_lost)<8}))+
+    kpi("MARKETING-SOURCED",so.reportable?money(so.open_pipeline):"—","not reportable",
+        bmSrc?("benchmark "+bmSrc.industry_low+"–"+bmSrc.industry_high+"% of pipeline"):"",
+        mix(sp(),{hi:true}))+
+  '</div>';
+
+  h+='<div class="grid g23">';
+  h+='<div class="card"><div class="ch"><h3>What unblocks the number</h3>'+tag("live","Owner-assigned")+'</div><div class="cb"><div class="acts">'+
+    [["Associate deals to campaigns","Susan","Zero of "+(pl.associated_deals||0)+" tracked deals carry a campaign link, so marketing-sourced pipeline cannot be computed at all.",true],
+     ["Attach forms and landing pages","Allison","Campaign sessions and first-touch are zero on all "+camps.length+" campaigns. Without assets attached nothing can be credited with a contact.",false],
+     ["Upload LinkedIn history","Becky / AGL","POST to /linkedin-upload. 22 months exist in a deck and none of it is in the pipeline.",false],
+     ["Approve benchmark targets","Rob","Six benchmarks are sourced but unapproved, so every comparison reads as reference rather than a bar.",false]
+    ].map(function(a){
+      return '<div class="act"><span class="sq'+(a[3]?" red":"")+'"></span><span><b>'+esc(a[0])+'</b><span class="d">'+esc(a[2])+'</span></span><span class="own">'+esc(a[1])+'</span></div>';
+    }).join("")+'</div></div></div>';
+
+  h+='<div><div class="take"><span class="u">Where this stands</span><p>'+
+    'Pipeline is real at <b>'+money(pl.open_pipeline)+'</b> across '+(pl.n_open||0)+' open deals, with <b>'+money(pl.won_amount)+'</b> closed won. '+
+    'Marketing activity is real too — <b>'+num(infl)+' contacts influenced</b> across '+camps.length+' conference campaigns. '+
+    'What does not exist is the link between them: <b>zero deals</b> carry a campaign association. '+
+    (bmSrc?'The standard is <b>'+bmSrc.industry_low+'–'+bmSrc.industry_high+'%</b> of pipeline sourced by marketing; below 30% is treated as structural rather than an execution problem. HDI cannot compute it at all, which is more basic still.':'')+
+    '</p></div>';
+
+  h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Feed status</h3><span class="note">built '+ago(S.built_at)+'</span></div><div class="cb"><table><tbody>'+
+    [["HubSpot",S.sources.hubspot],["GA4",S.sources.ga4],["Clarity",S.sources.clarity],["LinkedIn",S.sources.linkedin]]
+    .map(function(x){
+      var m=mode(x[1]);
+      var lbl=m==="live"?'<span class="n" style="color:var(--teal)">live</span>':
+              m==="stub"?'<span class="z" style="color:var(--amb)">stub</span>':'<span class="z">no data</span>';
+      return '<tr><td>'+x[0]+'</td><td>'+lbl+'</td><td class="'+(x[1]&&x[1].pulled_at?"n":"z")+'">'+
+        (x[1]&&x[1].pulled_at?ago(x[1].pulled_at):"never")+'</td></tr>';
+    }).join("")+'</tbody></table>'+
+    '<div class="foot">Stub means the collector ran fine but returned an empty payload — not an error, and not live either.</div>'+
+    '</div></div></div></div>';
+  $("p-board").innerHTML=h;
+}
+
+/* ================= CAMPAIGNS ================= */
+function campaigns(){
+  var hs=S.sources.hubspot,d=(hs&&hs.data)||{},camps=(d.campaigns||[]).slice();
+  if(!camps.length){$("p-camp").innerHTML='<div class="card"><div class="ch"><h3>Campaigns</h3>'+srcTag(hs,"HubSpot")+'</div><div class="cb">'+empty("No campaigns in the feed","")+'</div></div>';return;}
+  camps.sort(function(a,b){return (b.metrics.influencedContacts||0)-(a.metrics.influencedContacts||0);});
+  var infl=camps.reduce(function(a,c){return a+(c.metrics.influencedContacts||0);},0);
+  var withInfl=camps.filter(function(c){return c.metrics.influencedContacts>0;}).length;
+  var h='<div class="kpis">'+
+    kpi("CAMPAIGNS TRACKED",String(camps.length),"all mapped to CRM",null,sp())+
+    kpi("INFLUENCED CONTACTS",num(infl),withInfl+" of "+camps.length+" campaigns",null,mix(sp(),{ok:true}))+
+    kpi("FIRST-TOUCH","0","across every campaign",null,mix(sp(),{warn:true}))+
+    kpi("CAMPAIGN SESSIONS","0","no assets attached",null,mix(sp(),{hi:true}))+
+  '</div>';
+  h+='<div class="card"><div class="ch"><h3>Influenced contacts by campaign</h3>'+
+    '<span class="note">the only attribution measure returning anything</span>'+srcTag(hs,"HubSpot")+'</div><div class="cb">'+
+    bars(camps.map(function(c,i){return [c.name.replace(/^Conference:\s*/,""),c.metrics.influencedContacts,i===0?"var(--lime)":"var(--sage)"];}))+
+    '<div class="foot warn">Influenced is the loosest measure HubSpot offers. First-touch, last-touch and sessions are zero on all '+camps.length+' campaigns — those three answer "where did this lead come from".</div>'+
+    '</div></div>';
+  h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>All attribution measures</h3>'+srcTag(hs,"HubSpot")+'</div><div class="cb">'+
+    '<table><thead><tr><th>Campaign</th><th>Influenced</th><th>First touch</th><th>Last touch</th><th>Sessions</th></tr></thead><tbody>'+
+    camps.map(function(c){var m=c.metrics;
+      return '<tr><td>'+esc(c.name.replace(/^Conference:\s*/,""))+'</td><td class="'+(m.influencedContacts?"n":"z")+'">'+m.influencedContacts+
+      '</td><td class="z">'+m.newContactsFirstTouch+'</td><td class="z">'+m.newContactsLastTouch+'</td><td class="z">'+m.sessions+'</td></tr>';}).join("")+
+    '<tr class="tot"><td>'+camps.length+' campaigns</td><td class="n">'+infl+'</td><td class="z">0</td><td class="z">0</td><td class="z">0</td></tr>'+
+    '</tbody></table>'+(d.contacts_created_7d!==undefined?'<div class="foot">'+d.contacts_created_7d+' contacts created portal-wide in the last 7 days.</div>':'')+
+    '</div></div>';
+  $("p-camp").innerHTML=h;
+}
+
+/* ================= PIPELINE ================= */
+function pipeline(){
+  var hs=S.sources.hubspot,d=(hs&&hs.data)||{},pl=d.pipeline||{},so=d.sourced||{};
+  var h='<div class="kpis">'+
+    kpi("OPEN PIPELINE",money(pl.open_pipeline),pl.n_open?("from "+pl.n_open+" open deals"):"",full(pl.open_pipeline),sp())+
+    kpi("CLOSED WON",money(pl.won_amount),pl.n_won?(pl.n_won+" deals"):"",full(pl.won_amount),sp())+
+    kpi("CLOSED LOST",money(pl.lost_amount),pl.n_lost?(pl.n_lost+" deals"):"",full(pl.lost_amount),sp())+
+    kpi("DEALS IN SCOPE",num(pl.associated_deals),(pl.n_open||0)+" open · "+(pl.n_won||0)+" won · "+(pl.n_lost||0)+" lost",null,sp())+
+    kpi("MARKETING-SOURCED","—","not reportable",(so.associated_deals||0)+" deals associated",mix(sp(),{hi:true}))+
+  '</div>';
+  var w=pl.won_amount||0,l=pl.lost_amount||0,o=pl.open_pipeline||0;
+  h+='<div class="grid g23">';
+  h+='<div class="card"><div class="ch"><h3>Value by outcome</h3>'+srcTag(hs,"HubSpot")+'</div><div class="cb">'+
+    bars([["Open pipeline",o,"var(--lime)",full(o)],["Closed won",w,"var(--teal)",full(w)],
+          ["Closed lost",l,"var(--taupe)",full(l)],["Marketing-sourced",0,null,"—"]])+
+    '<div class="foot warn">Marketing-sourced shows a dash, not zero. Zero would claim marketing produced nothing; a dash correctly says the question is unanswerable because no deal carries a campaign link.</div>'+
+    '</div></div>';
+  h+='<div class="card"><div class="ch"><h3>Reportability</h3>'+srcTag(hs,"HubSpot")+'</div><div class="cb"><table><tbody>'+
+    '<tr><td>Pipeline figures</td><td class="'+(pl.reportable?"n":"z")+'">'+(pl.reportable?"reportable":"not reportable")+'</td></tr>'+
+    '<tr><td>Marketing-sourced</td><td class="z">not reportable</td></tr>'+
+    '<tr><td>Deals associated to campaigns</td><td class="z">'+(so.associated_deals||0)+'</td></tr>'+
+    '<tr><td>Win-rate sample</td><td class="'+((pl.n_won+pl.n_lost)>=8?"n":"z")+'">'+(pl.n_won+pl.n_lost)+' closed'+((pl.n_won+pl.n_lost)<8?" · suppressed":"")+'</td></tr>'+
+    '<tr><td>Currency</td><td class="n">'+esc(pl.currency||"—")+'</td></tr>'+
+    '</tbody></table>'+(so.note?'<div class="foot warn">'+esc(so.note)+'</div>':'')+'</div></div></div>';
+  $("p-pipe").innerHTML=h;
+}
+
+/* ================= WEBSITE ================= */
+function website(){
+  var g=S.sources.ga4,c=S.sources.clarity,h='';
+  var gd, cd, clatest, cwin;
+  if(PV){
+    var p=PREVIEW();
+    gd=p.ga4.map(function(x){return {date:x.date,provisional:x.provisional,sessions:x.sessions,engaged:x.engagedSessions,key_events:x.keyEvents};});
+    cd=p.clarity.map(function(x){return {date:x.date,scroll:x.scroll_depth,rage:Math.round(x.rage_clicks/64*100),sessions:60};});
+    clatest={scroll:cd[cd.length-1].scroll,rage:cd[cd.length-1].rage,dead:9,sessions:1240,bots:0};
+    cwin=1;
+  } else {
+    gd=(HIST.ga4||[]).slice(-RANGE);
+    if(!gd.length && mode(g)==="live" && g.data && g.data.days){        // fallback to current snapshot
+      gd=g.data.days.map(function(d){return {date:d.date,provisional:d.provisional,sessions:d.sessions,engaged:d.engaged,key_events:d.key_events};});
+    }
+    cd=(HIST.clarity||[]).map(function(r){var m=(r.data&&r.data.metrics)||{};return {date:r.date,
+      scroll:(m.scroll_depth||{}).averageScrollDepth,
+      rage:(m.rage_clicks||{}).sessionsWithMetricPercentage,
+      sessions:Number((m.traffic||{}).totalSessionCount||0)};});
+    var cm=(c&&c.data&&c.data.metrics)||null;
+    if(cm)clatest={scroll:(cm.scroll_depth||{}).averageScrollDepth,
+      rage:(cm.rage_clicks||{}).sessionsWithMetricPercentage,
+      dead:(cm.dead_clicks||{}).sessionsWithMetricPercentage,
+      sessions:Number((cm.traffic||{}).totalSessionCount||0),
+      bots:Number((cm.traffic||{}).totalBotSessionCount||0)};
+    cwin=(c&&c.data&&c.data.window_days)||null;
+  }
+
+  // ---- GA4 ----
+  if(gd&&gd.length){
+    var sum=function(k){return gd.reduce(function(a,x){return a+(x[k]||0);},0);};
+    var sess=sum("sessions"),eng=sum("engaged"),ke=sum("key_events");
+    var prov=gd.filter(function(x){return x.provisional;}).length;
+    var bmC=BM&&BM.website_visitor_to_lead_pct;
+    h+='<div class="kpis">'+
+      kpi("SESSIONS",num(sess),gd.length+" day"+(gd.length===1?"":"s")+" in range",null,sp())+
+      kpi("ENGAGED SESSIONS",num(eng),sess?Math.round(eng/sess*100)+"% of sessions":"",null,sp())+
+      kpi("KEY EVENTS",ke?num(ke):"—",ke?"conversions":"none marked in GA4",null,mix(sp(),{warn:!ke}))+
+      kpi("VISITOR TO LEAD",ke?((ke/sess*100).toFixed(2)+"%"):"—",
+          bmC?("benchmark "+bmC.industry_low+"–"+bmC.industry_high+"%"):"",
+          ke?(prov?prov+" days provisional":""):"blocked on key events — Adrian/Rob",mix(sp(),{hi:true}))+
+    '</div>';
+    var t=trend(gd.map(function(x){return {label:(x.date||"").slice(5),v:x.sessions};}));
+    h+='<div class="card"><div class="ch"><h3>Sessions · last '+(PV?90:RANGE)+' days</h3><span class="note">grey band is the usual range</span>'+srcTag(g,"GA4")+'</div><div class="cb">'+
+      (t?t.svg:'<div class="foot">Building history — a trend needs at least 2 days and GA4 has '+gd.length+' live so far. It fills in as the daily pull runs.</div>')+
+      (t?'<div class="foot'+(gd[gd.length-1].sessions>=t.lo&&gd[gd.length-1].sessions<=t.hi?"":" warn")+'">'+
+        (gd[gd.length-1].sessions>=t.lo&&gd[gd.length-1].sessions<=t.hi
+          ? "The latest day sits inside the normal range, so the movement is indistinguishable from ordinary variation."
+          : "The latest day sits outside the usual range — worth a look, but outside-the-band means unusual, not explained.")+'</div>':"")+
+      (prov?'<div class="foot warn">'+prov+' most recent day(s) provisional — GA4 settles over ~48h and is re-pulled.</div>':"")+
+      '</div></div>';
+  } else {
+    h+='<div class="card"><div class="ch"><h3>Website · GA4</h3>'+srcTag(g,"GA4")+'</div><div class="cb">'+
+      empty("GA4 is not returning live data yet","No live GA4 payload in the feed for this range. Turn on <b>Preview layout</b> to see how this tab looks populated.")+
+      '</div></div>';
+  }
+
+  // ---- Clarity (a trailing-window aggregate object, one point per stored day) ----
+  if(clatest){
+    var human=clatest.sessions-(clatest.bots||0);
+    h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Behaviour · Clarity</h3>'+
+      '<span class="note">'+(cwin?cwin+"-day window · ":"")+cd.length+' day'+(cd.length===1?"":"s")+' stored</span>'+srcTag(c,"Clarity")+'</div><div class="cb">'+
+      '<div class="kpis" style="margin-bottom:12px">'+
+        kpi("SESSIONS",num(clatest.sessions),(clatest.bots?num(clatest.bots)+" bot · "+num(human)+" human":"latest window"),null,sp())+
+        kpi("SCROLL DEPTH",clatest.scroll!=null?(Math.round(clatest.scroll*10)/10)+"%":"—","average",null,sp())+
+        kpi("RAGE CLICKS",clatest.rage!=null?clatest.rage+"%":"—","of sessions",null,mix(sp(),{warn:clatest.rage>10}))+
+        kpi("DAYS RETAINED",String(cd.length||1),"stored beyond the 3-day API window",null,mix(sp(),{hi:true}))+
+      '</div>'+
+      (function(){var t2=trend(cd.map(function(x){return {label:(x.date||"").slice(5),v:x.scroll};}),{fmt:function(v){return (Math.round(v*10)/10)+"%";}});
+        return t2?'<div class="foot" style="margin-bottom:8px">Scroll depth · last '+(PV?34:RANGE)+' days</div>'+t2.svg
+                 :'<div class="foot">Building history — Clarity has '+(cd.length||1)+' stored day(s); the scroll-depth trend fills in daily.</div>';})()+
+      '<div class="foot ok">Clarity serves only 3 days via its API. Everything beyond that exists solely because this pipeline stored it — the stored copy is the only copy.</div>'+
+      '</div></div>';
+  } else {
+    h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Behaviour · Clarity</h3>'+srcTag(c,"Clarity")+'</div><div class="cb">'+
+      empty("Clarity is not returning data","No Clarity payload in the feed. Turn on <b>Preview layout</b> to see this populated.")+
+      '</div></div>';
+  }
+  $("p-web").innerHTML=h;
+}
+
+/* ================= LINKEDIN ================= */
+function linkedin(){
+  var li=S.sources.linkedin,h='';
+  if(PV){
+    var bm=BM&&BM.linkedin_engagement_rate_pct;
+    h+='<div class="kpis">'+
+      kpi("TOTAL FOLLOWERS","697","↑ 285% since Aug '24",null,sp())+
+      kpi("ENGAGEMENT RATE","8.5%",bm?("benchmark "+bm.company_page_low+"–"+bm.company_page_high+"%"):"",null,mix(sp(),{ok:true}))+
+      kpi("IMPRESSIONS","3,485","↑ 31.8% QoQ",null,sp())+
+      kpi("UNIQUE VISITORS","526","↑ 21.2% QoQ",null,mix(sp(),{hi:true}))+
+    '</div>';
+    h+='<div class="card"><div class="ch"><h3>Engagement by post type</h3><span class="note">n = posts published</span>'+tag("samp","Sample · preview")+'</div><div class="cb">'+
+      bars([["Carousel · n=5",15,"var(--lime)","15%"],["Job · n=2",11,"var(--sage)","11%"],
+            ["Video · n=1",9,"var(--sage)","9%"],["Article · n=5",8.5,"var(--sage)","8.5%"],
+            ["Repost · n=3",7.7,"var(--sage)","7.7%"],["Share · n=2",7,"var(--sage)","7%"],
+            ["Document · n=1",5.9,"var(--sage)","5.9%"],["Image · n=41",3.6,"var(--taupe)","3.6%"]])+
+      '<div class="foot warn">Formats with n below 8 are directional only — a rate on one or two posts is not a trend.</div></div></div>';
+  } else if(li && li.data && !li.data.gap){
+    // LIVE branch — render an actual upload, mapped to the same layout as preview.
+    var d=li.data, per=d.period||{}, bm=BM&&BM.linkedin_engagement_rate_pct;
+    var er=d.engagement_rate;
+    h+='<div class="kpis">'+
+      kpi("TOTAL FOLLOWERS",num(d.followers_total),d.followers_gained!=null?("+"+num(d.followers_gained)+" this period"):"",null,sp())+
+      kpi("ENGAGEMENT RATE",er!=null?er+"%":"—",
+          bm?("benchmark "+bm.company_page_low+"–"+bm.company_page_high+"%"):"",
+          (bm&&er!=null)?(er>=bm.company_page_low?"at or above benchmark":"below benchmark"):"",
+          mix(sp(),{ok:!(bm&&er!=null&&er<bm.company_page_low),warn:(bm&&er!=null&&er<bm.company_page_low)}))+
+      kpi("IMPRESSIONS",num(d.impressions),"",null,sp())+
+      kpi("UNIQUE VISITORS",num(d.unique_visitors),"",null,mix(sp(),{hi:true}))+
+    '</div>';
+    h+='<div class="card"><div class="ch"><h3>Engagement this period</h3><span class="note">'+esc((per.start||"?")+" → "+(per.end||"?"))+'</span>'+srcTag(li,"LinkedIn")+'</div><div class="cb">'+
+      bars([["Reactions",d.reactions,"var(--lime)",num(d.reactions)],
+            ["Comments",d.comments,"var(--sage)",num(d.comments)],
+            ["Reposts",d.reposts,"var(--sage)",num(d.reposts)],
+            ["Page views",d.page_views,"var(--taupe)",num(d.page_views)]])+
+      '<div class="foot">Manual upload — this panel is only as fresh as the last POST to <code>/linkedin-upload</code>, carrying period '+esc(per.end||"—")+' rather than a live tag. Post-type breakdown is not in the upload payload, so it is omitted here (visible only in Preview).</div>'+
+      '</div></div>';
+    var lh=(HIST.linkedin||[]).filter(function(r){return r.data&&r.data.followers_total!=null;});
+    if(lh.length>=2){
+      var tl=trend(lh.map(function(r){return {label:(r.date||"").slice(5),v:r.data.followers_total};}));
+      if(tl)h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Followers over time</h3><span class="note">last '+RANGE+' days of uploads</span>'+srcTag(li,"LinkedIn")+'</div><div class="cb">'+tl.svg+'</div></div>';
+    }
+  } else {
+    h+='<div class="card"><div class="ch"><h3>LinkedIn</h3>'+srcTag(li,"LinkedIn")+'</div><div class="cb">'+
+      empty("Nothing has been uploaded yet",
+        "The feed reports <code>"+esc((li&&li.error)||"no data")+"</code>.<br><br>"+
+        "LinkedIn is a manual upload on this pipeline. 22 months of history exist in the Q2 deck and none of it is in the system — worth loading all of it, not just the current week, so trends have something to stand on.<br><br>"+
+        "Turn on <b>Preview layout</b> above to see this tab populated.")+
+      '<div class="foot">Because it is a manual upload, this panel carries an upload date rather than a live tag once data lands. That is correct — it is only as fresh as the last upload.</div>'+
+      '</div></div>';
+  }
+  $("p-li").innerHTML=h;
+}
+
+/* ================= BENCHMARKS ================= */
+function benchmarks(){
+  if(!BM){$("p-bm").innerHTML='<div class="card"><div class="ch"><h3>Benchmarks</h3>'+tag("none","No config")+'</div><div class="cb">'+
+    empty("benchmarks.json not found","Deploy it to <code>/data/benchmarks.json</code>. Until then every comparison on this dashboard has nothing to compare against.")+'</div></div>';return;}
+  var keys=Object.keys(BM).filter(function(k){return k.charAt(0)!=="_"&&BM[k]&&BM[k].label;});
+  var approved=keys.filter(function(k){return BM[k].hdi_target!=null;}).length;
+  var h='<div class="kpis">'+
+    kpi("BENCHMARKS SOURCED",String(keys.length),"2026 industry data")+
+    kpi("APPROVED AS TARGETS",String(approved),approved?"":"none yet — Rob owns this","",{warn:!approved})+
+    kpi("SHOWN AS REFERENCE",String(keys.length-approved),"context, not accountability")+
+    kpi("MIN SAMPLE FOR A RATE",String((BM._suppression_rules&&BM._suppression_rules.min_sample_for_rate)||8),"below this, suppressed",null,{hi:true})+
+  '</div>';
+  h+='<div class="card"><div class="ch"><h3>Every benchmark, and where HDI sits</h3>'+
+    tag(approved?"live":"stub",approved?"Approved targets":"Reference only")+'</div><div class="cb">'+
+    '<table><thead><tr><th>Metric</th><th>Industry range</th><th>HDI now</th><th>Target</th></tr></thead><tbody>'+
+    keys.map(function(k){
+      var b=BM[k],lo=b.industry_low!=null?b.industry_low:b.industry_reference,hi=b.industry_high;
+      var rng=lo==null?"—":(hi!=null?lo+"–"+hi:String(lo));
+      if(b.unit==="usd")rng=lo==null?"—":(hi!=null?"$"+lo+"–$"+hi:"$"+lo);
+      else if(b.unit==="percent")rng=rng+"%";
+      var cur=b.hdi_current;
+      var curTxt=cur==null?'<span class="dsh">not measurable</span>':
+        '<span class="n">'+(b.unit==="usd"?"$"+cur:(b.unit==="percent"?cur+"%":cur))+'</span>';
+      return '<tr><td>'+esc(b.label)+'</td><td class="n">'+rng+'</td><td>'+curTxt+'</td>'+
+        '<td>'+(b.hdi_target!=null?'<span class="n">'+b.hdi_target+'</span>':'<span class="z">unapproved</span>')+'</td></tr>';
+    }).join("")+'</tbody></table>'+
+    '<div class="foot warn">Every row marked unapproved shows as reference on this dashboard, not as a bar HDI is held to. That distinction is deliberate: an unapproved benchmark is context, an approved one is accountability.</div>'+
+    '<div class="foot">Do not use the widely-circulated "IT &amp; Services $369.88 / Healthcare $285.82" figures — they come from a 2017 survey still republished as current without disclosure.</div>'+
+    '</div></div>';
+  $("p-bm").innerHTML=h;
+}
+
+/* ================= SHELL ================= */
+function shell(){
+  var m={hubspot:mode(S.sources.hubspot),ga4:mode(S.sources.ga4),clarity:mode(S.sources.clarity),linkedin:mode(S.sources.linkedin)};
+  var live=Object.keys(m).filter(function(k){return m[k]==="live";});
+  var stub=Object.keys(m).filter(function(k){return m[k]==="stub";});
+  var none=Object.keys(m).filter(function(k){return m[k]!=="live"&&m[k]!=="stub";});
+  $("built").className="pill "+(S.built_at?"ok":"off");
+  $("builtTxt").textContent="Built "+ago(S.built_at);
+  $("feed").className="pill "+(live.length===4?"ok":live.length?"part":"off");
+  $("feedTxt").textContent=live.length+"/4 live"+(stub.length?" · "+stub.length+" stub":"")+(none.length?" · "+none.length+" empty":"");
+
+  var red=$("alertRed"),amb=$("alertAmb");
+  if(m.clarity==="stub"){
+    red.classList.add("on");
+    red.innerHTML='<span class="u">Clarity is losing data right now</span><p>Clarity has never stored anything, and its API serves only the last three days — so everything older than three days is <b>already gone permanently</b>. Unlike GA4 this cannot be backfilled. Set <code>SOURCE_MODE_CLARITY</code> to <code>live</code> today, and request 3 days on the first run rather than 1.</p>';
+  } else red.classList.remove("on");
+
+  if(stub.length||none.length){
+    amb.classList.add("on");
+    amb.innerHTML='<span class="u">'+(stub.length+none.length)+' of 4 sources are not delivering</span><p>'+
+      (stub.filter(function(s){return s!=="clarity";}).length?'<b>'+stub.filter(function(s){return s!=="clarity";}).map(function(s){return s.toUpperCase();}).join(", ")+'</b> ran successfully but returned stub payloads — one environment variable each. ':'')+
+      (none.indexOf("linkedin")>=0?'<b>LINKEDIN</b> has never received an upload. ':'')+
+      'Panels for these sources stay empty rather than showing zeros. Use <b>Preview layout</b> to review how they look populated — that mode is entirely synthetic and badged as such.</p>';
+  } else amb.classList.remove("on");
+
+  $("pgfoot").innerHTML="Feed: "+esc(API)+" · proxied server-side, so no cross-origin headers are needed. Benchmarks: "+esc(BM_URL)+(BM?"":" — not loaded")+"<br>"+
+    "Snapshot built "+esc(S.built_at||"unknown")+". "+
+    (PV?"<b style='color:var(--warn)'>PREVIEW MODE IS ON — every figure on screen is synthetic and none of it is measured.</b>":
+        "No value is estimated, interpolated, or carried forward. A source with no data renders as a dash, never as zero.");
+}
+
+function render(){shell();board();campaigns();pipeline();website();linkedin();benchmarks();}
+
+function load(){
+  $("feedTxt").textContent="Loading…";
+  Promise.all([
+    fetch(API,{cache:"no-store"}).then(function(r){if(!r.ok)throw new Error("feed "+r.status);return r.json();}),
+    fetch(BM_URL,{cache:"no-store"}).then(function(r){return r.ok?r.json():null;}).catch(function(){return null;})
+  ]).then(function(res){S=res[0];BM=res[1];return refreshHistories();}).then(function(){render();})
+   .catch(function(e){
+    $("feed").className="pill off";$("feedTxt").textContent="Feed unreachable";
+    var red=$("alertRed");red.classList.add("on");
+    red.innerHTML='<span class="u">Cannot reach the pipeline</span><p>Could not load <code>'+esc(API)+'</code> ('+esc(e.message)+'). If this site was deployed without <code>netlify.toml</code> beside index.html, the proxy redirect is missing.</p>';
+  });
+}
+
+$("pvTog").addEventListener("click",function(){
+  PV=!PV;this.setAttribute("aria-pressed",PV?"true":"false");
+  document.body.classList.toggle("preview",PV);
+  document.title=(PV?"[PREVIEW] ":"")+"HDI · Marketing Performance";
+  if(S)render();
+});
+Array.prototype.forEach.call(document.querySelectorAll(".tabs button"),function(b){
+  b.addEventListener("click",function(){
+    Array.prototype.forEach.call(document.querySelectorAll(".tabs button"),function(x){x.setAttribute("aria-selected","false");});
+    b.setAttribute("aria-selected","true");
+    Array.prototype.forEach.call(document.querySelectorAll(".pane"),function(p){p.classList.remove("on");});
+    $("p-"+b.dataset.t).classList.add("on");
+  });
+});
+$("refresh").addEventListener("click",load);
+Array.prototype.forEach.call(document.querySelectorAll("#rng button"),function(b){
+  b.addEventListener("click",function(){
+    RANGE=+b.dataset.r;
+    Array.prototype.forEach.call(document.querySelectorAll("#rng button"),function(x){x.classList.remove("on");});
+    b.classList.add("on");
+    if(S)refreshHistories().then(function(){website();linkedin();});
+  });
+});
+load();
+})();
+</script>
+</body>
+</html>
