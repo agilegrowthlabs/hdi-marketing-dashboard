@@ -203,7 +203,7 @@ svg.cv{width:100%;height:auto;display:block;overflow:visible}
 (function(){
 "use strict";
 var API="/api/snapshots", BM_URL="/data/benchmarks.json";
-var S=null, BM=null, PV=false, DAYS=30, HIST={ga4:null,clarity:null,linkedin:null,ga4_agg:null};
+var S=null, BM=null, PV=false, DAYS=30, HIST={ga4:null,clarity:null,linkedin:null,hubspot:null,ga4_agg:null};
 
 function $(i){return document.getElementById(i);}
 function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
@@ -306,25 +306,152 @@ function trend(series,opts){
   return {svg:'<svg class="cv" viewBox="0 0 '+w+' '+h+'" preserveAspectRatio="none">'+s+'</svg>',lo:lo,hi:hi,last:pts[pts.length-1]};
 }
 
+/* ---------- HubSpot range maths ----------
+   HubSpot history is a series of daily POINT-IN-TIME snapshots, not a transaction
+   log. Two metric types therefore need opposite treatment:
+
+   POINT-IN-TIME (open_pipeline, n_open, influenced contacts) — a range total is
+   meaningless. Report the latest value plus its change since the earliest row in
+   range. Never sum.
+
+   CUMULATIVE (won_amount, lost_amount, n_won, n_lost) — these accumulate, so the
+   value *within* a range is latest − earliest. Summing 30 snapshots of a $1.18M
+   cumulative total would give ~$35M, and it would look entirely plausible on a
+   chart. That is the failure this function exists to prevent.
+*/
+function hsRange(){
+  var rows=HIST.hubspot;
+  var live=(S.sources.hubspot&&S.sources.hubspot.data)||{};
+  var out={
+    rows:rows||null, days:rows?rows.length:0, ranged:false,
+    latest:live.pipeline||{}, campaigns:live.campaigns||[],
+    open:null, open_delta:null,
+    won:null, lost:null, n_won:null, n_lost:null, cumulative:true,
+    infl:null, infl_delta:null, label:"all time"
+  };
+  var pl=out.latest;
+  out.open=pl.open_pipeline!=null?pl.open_pipeline:null;
+  out.won=pl.won_amount!=null?pl.won_amount:null;
+  out.lost=pl.lost_amount!=null?pl.lost_amount:null;
+  out.n_won=pl.n_won!=null?pl.n_won:null;
+  out.n_lost=pl.n_lost!=null?pl.n_lost:null;
+  out.infl=(out.campaigns||[]).reduce(function(a,c){
+    return a+((c.metrics&&c.metrics.influencedContacts)||0);},0);
+
+  if(!rows||rows.length<2)return out;   /* not enough history — leave as all-time */
+
+  var first=rows[0], last=rows[rows.length-1];
+  var fp=first.pipeline||{}, lp=last.pipeline||{};
+
+  out.ranged=true;
+  out.label="last "+DAYS+" days";
+  out.span=first.date+" → "+last.date;
+
+  /* point-in-time: latest wins, delta is informational */
+  if(lp.open_pipeline!=null){
+    out.open=lp.open_pipeline;
+    if(fp.open_pipeline!=null)out.open_delta=lp.open_pipeline-fp.open_pipeline;
+  }
+  var fi=(first.campaigns||[]).reduce(function(a,c){
+    return a+((c.metrics&&c.metrics.influencedContacts)||0);},0);
+  var li=(last.campaigns||[]).reduce(function(a,c){
+    return a+((c.metrics&&c.metrics.influencedContacts)||0);},0);
+  out.infl=li; out.infl_delta=li-fi;
+
+  /* cumulative: subtract, never sum */
+  function delta(a,b){return (a!=null&&b!=null)?(a-b):null;}
+  var wD=delta(lp.won_amount,fp.won_amount), lD=delta(lp.lost_amount,fp.lost_amount);
+  var nwD=delta(lp.n_won,fp.n_won), nlD=delta(lp.n_lost,fp.n_lost);
+
+  /* a zero delta across the whole range means nothing closed in it — that is a
+     real answer, not missing data. Only fall back to all-time if the field is absent. */
+  /* Cumulative totals can only rise. A negative delta means the rows are out of
+     order or the feed reset — either way the range figure is not trustworthy, so
+     fall back to all-time and say so rather than printing a negative revenue. */
+  var negative=(wD!=null&&wD<0)||(lD!=null&&lD<0)||(nwD!=null&&nwD<0)||(nlD!=null&&nlD<0);
+  if(negative){
+    out.suspect=true;
+    return out;
+  }
+  if(wD!=null||lD!=null){
+    out.cumulative=false;
+    out.won=wD; out.lost=lD; out.n_won=nwD; out.n_lost=nlD;
+  }
+  return out;
+}
+function deltaTxt(v,fmt){
+  if(v==null)return "";
+  if(v===0)return "no change vs "+DAYS+"d ago";
+  return (v>0?"↑ ":"↓ ")+(fmt?fmt(Math.abs(v)):num(Math.abs(v)))+" vs "+DAYS+"d ago";
+}
+
 /* ================= BOARD ================= */
 function board(){
   var hs=S.sources.hubspot,d=(hs&&hs.data)||{},pl=d.pipeline||{},so=d.sourced||{};
   var camps=d.campaigns||[];
-  var infl=camps.reduce(function(a,c){return a+((c.metrics&&c.metrics.influencedContacts)||0);},0);
+  var R=hsRange();
   var bmSrc=BM&&BM.marketing_sourced_pipeline_pct;
+  var lifeWon=R.latest.won_amount!=null?R.latest.won_amount:R.won;
+  var lifeLost=R.latest.lost_amount!=null?R.latest.lost_amount:R.lost;
+  var lifeNW=R.latest.n_won!=null?R.latest.n_won:R.n_won;
+  var lifeNL=R.latest.n_lost!=null?R.latest.n_lost:R.n_lost;
+  var nClosed=(lifeNW||0)+(lifeNL||0);
+  var winRate=(lifeWon&&lifeLost&&(lifeWon+lifeLost)>0)?((lifeWon/(lifeWon+lifeLost))*100).toFixed(1)+"%":"—";
+  function rangeMove(delta,verb){ /* subtitle: how a cumulative metric moved within the window */
+    if(!R.ranged||R.suspect)return "all time";
+    return money(delta||0)+" "+verb+" in "+R.label;
+  }
 
-  var h='<div class="kpis">'+
-    kpi("OPEN PIPELINE",money(pl.open_pipeline),pl.n_open?("from "+pl.n_open+" open deals"):"",full(pl.open_pipeline),sp())+
-    kpi("CLOSED WON",money(pl.won_amount),pl.n_won?(pl.n_won+" deals"):"",full(pl.won_amount),sp())+
-    kpi("CLOSED LOST",money(pl.lost_amount),pl.n_lost?(pl.n_lost+" deals"):"",full(pl.lost_amount),sp())+
+  var h='';
+  if(R.suspect){
+    h+='<div class="card" style="margin-bottom:12px"><div class="cb"><div class="foot warn" style="margin:0">'+
+      'A cumulative total decreased across the selected range, which should be impossible — '+
+      'the history rows may be out of order or the feed may have reset. Showing <b>all-time</b> figures '+
+      'instead of a range, because a negative closed-won figure would be wrong rather than merely odd.'+
+      '</div></div></div>';
+  } else if(R.ranged){
+    h+='<div class="card" style="margin-bottom:12px"><div class="cb"><div class="foot" style="margin:0">'+
+      'Range: <b>'+esc(R.label)+'</b> ('+esc(R.span)+', '+R.days+' snapshots). '+
+      'Each headline is the current all-time figure; the line beneath shows how it moved across this window. '+
+      'Switch the range above to rescope that movement.'+
+      '</div></div></div>';
+  }
+
+  h+='<div class="kpis">'+
+    kpi("OPEN PIPELINE",money(R.open),
+        R.ranged?deltaTxt(R.open_delta,money):(pl.n_open?("from "+pl.n_open+" open deals"):""),
+        R.ranged?("latest · from "+(pl.n_open||0)+" open deals"):full(R.open),sp())+
+    kpi("CLOSED WON",money(lifeWon),
+        rangeMove(R.ranged?R.won:null,"won"),
+        lifeNW!=null?(lifeNW+" deal"+(lifeNW===1?"":"s")+" all-time"):"",sp())+
+    kpi("CLOSED LOST",money(lifeLost),
+        rangeMove(R.ranged?R.lost:null,"lost"),
+        lifeNL!=null?(lifeNL+" deal"+(lifeNL===1?"":"s")+" all-time"):"",sp())+
     kpi("WIN RATE BY VALUE",
-        (pl.won_amount&&pl.lost_amount)?((pl.won_amount/(pl.won_amount+pl.lost_amount))*100).toFixed(1)+"%":"—",
-        (pl.n_won&&pl.n_lost)?("on "+(pl.n_won+pl.n_lost)+" closed deals"):"",
-        (pl.n_won+pl.n_lost)<8?"below reporting threshold":"",mix(sp(),{warn:(pl.n_won+pl.n_lost)<8}))+
+        nClosed>=8?winRate:"—",
+        nClosed>=8?("on "+nClosed+" closed deals"):"not enough data",
+        "all time",
+        mix(sp(),{warn:nClosed<8}))+
     kpi("MARKETING-SOURCED",so.reportable?money(so.open_pipeline):"—","not reportable",
         bmSrc?("benchmark "+bmSrc.industry_low+"–"+bmSrc.industry_high+"% of pipeline"):"",
         mix(sp(),{hi:true}))+
   '</div>';
+
+  if(R.rows&&R.rows.length>1){
+    var t=trend(R.rows.map(function(x){
+      return {label:(x.date||"").slice(5),v:(x.pipeline&&x.pipeline.open_pipeline)!=null?x.pipeline.open_pipeline:null};
+    }),{fmt:money});
+    if(t)h+='<div class="card" style="margin-bottom:12px"><div class="ch"><h3>Open pipeline over time</h3>'+
+      '<span class="note">point-in-time · grey band is the usual range</span>'+srcTag(hs,"HubSpot")+
+      '</div><div class="cb">'+t.svg+
+      '<div class="foot">Each point is that day\'s open pipeline as it stood. These are snapshots, not additive — the line shows movement, never a running total.</div>'+
+      '</div></div>';
+  } else if(!R.ranged){
+    h+='<div class="card" style="margin-bottom:12px"><div class="cb"><div class="foot warn" style="margin:0">'+
+      'HubSpot history has '+R.days+' snapshot'+(R.days===1?'':'s')+' stored, so the range control cannot rescope these figures yet — '+
+      'everything above is all-time. This resolves itself as the daily collector accumulates days. Nothing is wrong.'+
+      '</div></div></div>';
+  }
 
   h+='<div class="grid g23">';
   h+='<div class="card"><div class="ch"><h3>What unblocks the number</h3>'+tag("live","Owner-assigned")+'</div><div class="cb"><div class="acts">'+
@@ -338,7 +465,7 @@ function board(){
 
   h+='<div><div class="take"><span class="u">Where this stands</span><p>'+
     'Pipeline is real at <b>'+money(pl.open_pipeline)+'</b> across '+(pl.n_open||0)+' open deals, with <b>'+money(pl.won_amount)+'</b> closed won. '+
-    'Marketing activity is real too — <b>'+num(infl)+' contacts influenced</b> across '+camps.length+' conference campaigns. '+
+    'Marketing activity is real too — <b>'+num(R.infl)+' contacts influenced</b> across '+camps.length+' conference campaigns. '+
     'What does not exist is the link between them: <b>zero deals</b> carry a campaign association. '+
     (bmSrc?'The standard is <b>'+bmSrc.industry_low+'–'+bmSrc.industry_high+'%</b> of pipeline sourced by marketing; below 30% is treated as structural rather than an execution problem. HDI cannot compute it at all, which is more basic still.':'')+
     '</p></div>';
@@ -366,7 +493,7 @@ function campaigns(){
   var withInfl=camps.filter(function(c){return c.metrics.influencedContacts>0;}).length;
   var h='<div class="kpis">'+
     kpi("CAMPAIGNS TRACKED",String(camps.length),"all mapped to CRM",null,sp())+
-    kpi("INFLUENCED CONTACTS",num(infl),withInfl+" of "+camps.length+" campaigns",null,mix(sp(),{ok:true}))+
+    kpi("INFLUENCED CONTACTS",num(infl),(function(){var R=hsRange();return R.ranged&&R.infl_delta!=null?deltaTxt(R.infl_delta):(withInfl+" of "+camps.length+" campaigns");})(),withInfl+" of "+camps.length+" campaigns",mix(sp(),{ok:true}))+
     kpi("FIRST-TOUCH","0","across every campaign",null,mix(sp(),{warn:true}))+
     kpi("CAMPAIGN SESSIONS","0","no assets attached",null,mix(sp(),{hi:true}))+
   '</div>';
@@ -381,7 +508,8 @@ function campaigns(){
       return '<tr><td>'+esc(c.name.replace(/^Conference:\s*/,""))+'</td><td class="'+(m.influencedContacts?"n":"z")+'">'+m.influencedContacts+
       '</td><td class="z">'+m.newContactsFirstTouch+'</td><td class="z">'+m.newContactsLastTouch+'</td><td class="z">'+m.sessions+'</td></tr>';}).join("")+
     '<tr class="tot"><td>'+camps.length+' campaigns</td><td class="n">'+infl+'</td><td class="z">0</td><td class="z">0</td><td class="z">0</td></tr>'+
-    '</tbody></table>'+(d.contacts_created_7d!==undefined?'<div class="foot">'+d.contacts_created_7d+' contacts created portal-wide in the last 7 days.</div>':'')+
+    '</tbody></table>'+(d.contacts_created_7d!==undefined?'<div class="foot">'+d.contacts_created_7d+' contacts created portal-wide in the last 7 days — '+
+      'this figure is fixed at 7 days by the feed and does not follow the range control above.</div>':'')+
     '</div></div>';
   $("p-camp").innerHTML=h;
 }
@@ -389,18 +517,26 @@ function campaigns(){
 /* ================= PIPELINE ================= */
 function pipeline(){
   var hs=S.sources.hubspot,d=(hs&&hs.data)||{},pl=d.pipeline||{},so=d.sourced||{};
+  var R=hsRange();
   var h='<div class="kpis">'+
-    kpi("OPEN PIPELINE",money(pl.open_pipeline),pl.n_open?("from "+pl.n_open+" open deals"):"",full(pl.open_pipeline),sp())+
-    kpi("CLOSED WON",money(pl.won_amount),pl.n_won?(pl.n_won+" deals"):"",full(pl.won_amount),sp())+
-    kpi("CLOSED LOST",money(pl.lost_amount),pl.n_lost?(pl.n_lost+" deals"):"",full(pl.lost_amount),sp())+
-    kpi("DEALS IN SCOPE",num(pl.associated_deals),(pl.n_open||0)+" open · "+(pl.n_won||0)+" won · "+(pl.n_lost||0)+" lost",null,sp())+
+    kpi("OPEN PIPELINE",money(R.open),
+        R.ranged?deltaTxt(R.open_delta,money):(pl.n_open?("from "+pl.n_open+" open deals"):""),
+        R.ranged?"latest":full(R.open),sp())+
+    kpi("CLOSED WON",money(R.won),R.cumulative?"all time":("in the "+esc(R.label)),
+        R.n_won!=null?(R.n_won+" deals"):"",sp())+
+    kpi("CLOSED LOST",money(R.lost),R.cumulative?"all time":("in the "+esc(R.label)),
+        R.n_lost!=null?(R.n_lost+" deals"):"",sp())+
+    kpi("DEALS IN SCOPE",num(pl.associated_deals),(pl.n_open||0)+" open · "+(pl.n_won||0)+" won · "+(pl.n_lost||0)+" lost",
+        "all time",sp())+
     kpi("MARKETING-SOURCED","—","not reportable",(so.associated_deals||0)+" deals associated",mix(sp(),{hi:true}))+
   '</div>';
   var w=pl.won_amount||0,l=pl.lost_amount||0,o=pl.open_pipeline||0;
   h+='<div class="grid g23">';
   h+='<div class="card"><div class="ch"><h3>Value by outcome</h3>'+srcTag(hs,"HubSpot")+'</div><div class="cb">'+
-    bars([["Open pipeline",o,"var(--lime)",full(o)],["Closed won",w,"var(--teal)",full(w)],
-          ["Closed lost",l,"var(--taupe)",full(l)],["Marketing-sourced",0,null,"—"]])+
+    bars([["Open pipeline (latest)",R.open||0,"var(--lime)",full(R.open)],
+          ["Closed won "+(R.cumulative?"(all time)":"("+R.label+")"),R.won||0,"var(--teal)",full(R.won)],
+          ["Closed lost "+(R.cumulative?"(all time)":"("+R.label+")"),R.lost||0,"var(--taupe)",full(R.lost)],
+          ["Marketing-sourced",0,null,"—"]])+
     '<div class="foot warn">Marketing-sourced shows a dash, not zero. Zero would claim marketing produced nothing; a dash correctly says the question is unanswerable because no deal carries a campaign link.</div>'+
     '</div></div>';
   h+='<div class="card"><div class="ch"><h3>Reportability</h3>'+srcTag(hs,"HubSpot")+'</div><div class="cb"><table><tbody>'+
@@ -409,6 +545,7 @@ function pipeline(){
     '<tr><td>Deals associated to campaigns</td><td class="z">'+(so.associated_deals||0)+'</td></tr>'+
     '<tr><td>Win-rate sample</td><td class="'+((pl.n_won+pl.n_lost)>=8?"n":"z")+'">'+(pl.n_won+pl.n_lost)+' closed'+((pl.n_won+pl.n_lost)<8?" · suppressed":"")+'</td></tr>'+
     '<tr><td>Currency</td><td class="n">'+esc(pl.currency||"—")+'</td></tr>'+
+    '<tr><td>History depth</td><td class="'+(R.days>1?"n":"z")+'">'+R.days+' snapshot'+(R.days===1?'':'s')+(R.days>1?'':' · range inactive')+'</td></tr>'+
     '</tbody></table>'+(so.note?'<div class="foot warn">'+esc(so.note)+'</div>':'')+'</div></div></div>';
   $("p-pipe").innerHTML=h;
 }
@@ -731,7 +868,14 @@ function isStub(row){
 }
 function newer(a,b){return new Date(a||0).getTime()>new Date(b||0).getTime();}
 function byDateSorted(map){
-  return Object.keys(map).sort().map(function(k){return map[k];});
+  /* Sort by real date value, not string order. ISO dates sort correctly either way,
+     but a single non-padded date from the feed would silently reorder the series and
+     make first/last wrong — which surfaces as a negative cumulative delta. */
+  return Object.keys(map).sort(function(a,b){
+    var ta=new Date(a).getTime(), tb=new Date(b).getTime();
+    if(ta===ta&&tb===tb&&ta!==tb)return ta-tb;
+    return a<b?-1:(a>b?1:0);
+  }).map(function(k){return map[k];});
 }
 
 function normHist(payload,source){
@@ -769,6 +913,22 @@ function normHist(payload,source){
     });
     var cl=byDateSorted(cm);
     return cl.length?cl:null;
+  }
+
+  if(source==="hubspot"){
+    var hb={};
+    rows.forEach(function(r){
+      var dt=r.date||(r.pulled_at||"").slice(0,10);
+      if(!dt)return;
+      var cur=hb[dt];
+      if(!cur||newer(r.pulled_at,cur.pulled_at)){
+        hb[dt]={date:dt,pulled_at:r.pulled_at,
+          pipeline:(r.data.pipeline||{}),campaigns:(r.data.campaigns||[]),
+          contacts_created_7d:r.data.contacts_created_7d};
+      }
+    });
+    var hbArr=byDateSorted(hb);
+    return hbArr.length?hbArr:null;
   }
 
   /* linkedin — each row is one uploaded period */
@@ -831,7 +991,7 @@ function load(){
     fetch(BM_URL,{cache:"no-store"}).then(function(r){return r.ok?r.json():null;}).catch(function(){return null;})
   ]).then(function(res){
     S=res[0];BM=res[1];
-    return Promise.all([fetchHist("ga4"),fetchHist("clarity"),fetchHist("linkedin")]);
+    return Promise.all([fetchHist("ga4"),fetchHist("clarity"),fetchHist("linkedin"),fetchHist("hubspot")]);
   }).then(function(){render();})
    .catch(function(e){
     $("feed").className="pill off";$("feedTxt").textContent="Feed unreachable";
