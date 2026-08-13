@@ -654,8 +654,8 @@ function website(){
       '<div class="kpis" style="margin-bottom:12px">'+
         kpi("SCROLL DEPTH",cm.scroll_depth!=null?cm.scroll_depth+"%":"—","how far people read",null,sp())+
         kpi("RAGE CLICKS",cm.rage_clicks!=null?cm.rage_clicks+"%":"—","of sessions · frustration signal",null,sp())+
-        kpi("DEAD CLICKS",cm.dead_clicks!=null?num(cm.dead_clicks):"—","clicks that do nothing",null,sp())+
-        kpi("QUICK BACKS",cm.quickback_clicks!=null?num(cm.quickback_clicks):"—","landed and left",null,sp())+
+        kpi("DEAD CLICKS",cm.dead_clicks!=null?cm.dead_clicks+"%":"—","of sessions · clicks that do nothing",null,sp())+
+        kpi("QUICK BACKS",cm.quickback_clicks!=null?cm.quickback_clicks+"%":"—","of sessions · landed and left",null,sp())+
         kpi("DAYS STORED",days?String(days):"—","beyond the 3-day API window",null,mix(sp(),{hi:true}))+
       '</div>'+
       (cm.engagement_time!=null||cm.traffic!=null?
