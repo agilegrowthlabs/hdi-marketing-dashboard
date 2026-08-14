@@ -4,7 +4,13 @@ Live display layer for Health Data Innovations' single-source-of-truth marketing
 Deploys to Netlify (site **hdi-marketing-dashboard**) via continuous deployment — push to
 `main` and Netlify builds automatically.
 
+**Editing this repo? Read [`CLAUDE.md`](./CLAUDE.md) first.** It is the standing brief —
+load-bearing elements that must not be removed, the data rules, and the per-deploy verify
+steps — and it is kept current in the same commit as any code change. This README is the
+short orientation; `CLAUDE.md` is the full contract.
+
 ## Files (keep this structure — it is load-bearing)
+- `CLAUDE.md` — the editing brief. Read before changing anything; keep it current.
 - `index.html` — the dashboard (edit this for visuals; vanilla JS + inline CSS, no build step)
 - `netlify.toml` + `_redirects` — create the same-origin `/api/*` proxy to the data engine.
   Remove either and the feed 404s ("FEED UNREACHABLE").
@@ -23,7 +29,11 @@ Deploys to Netlify (site **hdi-marketing-dashboard**) via continuous deployment 
 - GA4 field names are `sessions`, `engaged`, `key_events` (NOT engagedSessions/keyEvents)
 - Clarity is a `metrics{}` object (traffic/scroll_depth/rage_clicks…), not a daily array
 - Benchmarks show as "reference until approved"
+- Preserve the load-bearing UI: the date-range controls (`rangeSeg`, `drFrom`, `drTo`,
+  `drApply`, `rangeNow` + the `fetchHist`/`applyWindow` wiring) and the Traffic-quality
+  (bot) panel on the Website tab. Restyling is fine; rewiring is not. See `CLAUDE.md`.
 
 ## Editing
-Edit `index.html`, commit, push. Netlify auto-builds `main` and publishes.
-For a safe change: branch → push → review Netlify's preview URL → merge to `main` to go live.
+Read `CLAUDE.md`, then: `git pull` → branch → edit `index.html` (and `CLAUDE.md` if the
+change is load-bearing) → push the branch → open a PR → review Netlify's Deploy Preview →
+merge to `main` to go live. Commit straight to `main` only for trivial colour/spacing tweaks.
