@@ -110,7 +110,7 @@ Rules specific to this panel:
 ## DO NOT REMOVE — THE INSIGHTS TAB + BOT-FILTER TOGGLE (load-bearing)
 Second tab, "Insights" (`data-t="ins"`, pane `#p-ins`), rendered by `insights()`. It is the
 interpretation layer: a "What's working, what's not" verdict strip (traffic trend, engagement
-vs benchmark, bot load, visitor→lead, sourced pipeline), then GA4 trend diagnostics (MoM/WoW/
+vs benchmark, website-visitor count, visitor→lead, sourced pipeline), then GA4 trend diagnostics (MoM/WoW/
 slope/engaged-rate), a correlation section, the Clarity human-vs-bot stored-history table, and
 a watch list. Preserve it. Restyle freely, but keep:
 - `insights()` and the stat helpers `_sum`/`_mean`/`pearson`/`slopePerDay`/`growthPct`/`pctTxt`,
@@ -202,13 +202,14 @@ Must be 200. Then open `https://hdi-marketing-dashboard.netlify.app/?v=NNN` and 
   hardcoded; confirm the card is labeled by Clarity's own window (not the date range) and is
   not attached to the GA4 numbers.
 - Insights tab: the "What's working, what's not" strip renders live verdicts (traffic trend,
-  engagement vs 52–56%, bot load, visitor→lead, sourced pipeline); the Traffic-trend chart +
+  engagement vs 52–56%, website-visitor count (plain count, not a %), visitor→lead, sourced pipeline); the Traffic-trend chart +
   MoM/WoW/slope/engaged-rate compute from GA4 history; the Correlation section says "not
   causation"; the Clarity human-vs-bot table shows the stored days. Confirm nothing is
   hardcoded (numbers move as data flows) and it does NOT change when you switch the date range.
 - Bot filter: the header "Include bots" toggle flips the Website → Behaviour "Sessions" figure
-  between human-only (e.g. 68) and all-traffic (e.g. 119 incl. bots), and updates the
-  Traffic-quality filter line. It must not alter any GA4 number.
+  AND the Insights "Website visitors" card between human-only (e.g. 68) and all-traffic (e.g.
+  119 incl. bots), and updates the Traffic-quality filter line. Bot figures are plain COUNTS,
+  not percentages (Human / Bot / Total). It must not alter any GA4 number.
 
 ## NEVER TOUCH
 - The data engine site (`sweet-entremet-3ff236`) or its config. You only edit this repo.
