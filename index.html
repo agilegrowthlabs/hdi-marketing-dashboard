@@ -44,6 +44,14 @@ body.preview #pvBar{display:block}
 .seg button{border:0;background:transparent;padding:6px 11px;font-family:var(--m);font-size:9.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--grey);border-left:1px solid var(--border)}
 .seg button:first-child{border-left:0}
 .seg button[aria-pressed=true]{background:var(--teal);color:#fff}
+.dr{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);border-radius:5px;background:#fff;padding:4px 8px;font-family:var(--m);font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:var(--grey)}
+.dr label{font-weight:600;color:var(--mute)}
+.dr input[type=date]{border:1px solid var(--border);border-radius:4px;padding:3px 5px;font-family:var(--m);font-size:10px;color:var(--ink);background:var(--bg);color-scheme:light}
+.dr input[type=date]:focus{outline:2px solid var(--sage);outline-offset:0}
+.dr .sepx{color:var(--mute)}
+.dr button{border:0;background:var(--teal);color:#fff;border-radius:4px;padding:5px 10px;font-family:var(--m);font-size:9px;letter-spacing:.07em;text-transform:uppercase;cursor:pointer}
+.dr button:disabled{background:var(--mute);cursor:default;opacity:.6}
+.rangeNow{display:inline-flex;align-items:center;font-family:var(--m);font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:var(--teal);padding:6px 10px;border:1px solid #BFDBD6;border-radius:5px;background:var(--tealb);white-space:nowrap}
 .tog{display:inline-flex;align-items:center;gap:7px;background:#fff;border:1px solid var(--border);border-radius:5px;padding:6px 11px;font-family:var(--m);font-size:9.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--grey)}
 .tog i{width:24px;height:14px;border-radius:7px;background:var(--track);position:relative;transition:background .15s;flex:none}
 .tog i::after{content:"";position:absolute;top:2px;left:2px;width:10px;height:10px;border-radius:50%;background:#fff;transition:transform .15s}
@@ -171,7 +179,7 @@ svg.cv{width:100%;height:auto;display:block;overflow:visible}
   <span class="sp"></span>
   <span class="pill" id="built"><span class="dot"></span><span id="builtTxt">Loading…</span></span>
   <span class="pill" id="feed"><span class="dot"></span><span id="feedTxt">—</span><button id="refresh">refresh</button></span>
-  <span class="seg" id="rangeSeg" role="group" aria-label="Time range"><button data-d="7">7d</button><button data-d="30" aria-pressed="true">30d</button><button data-d="90">90d</button></span><button class="tog" id="pvTog" aria-pressed="false"><i></i>Preview layout</button>
+  <span class="seg" id="rangeSeg" role="group" aria-label="Preset time range"><button data-d="7">7d</button><button data-d="30" aria-pressed="true">30d</button><button data-d="90">90d</button><button data-d="0">All</button></span><span class="dr" role="group" aria-label="Custom date range"><label for="drFrom">From</label><input type="date" id="drFrom" aria-label="Start date"><span class="sepx">→</span><label for="drTo">To</label><input type="date" id="drTo" aria-label="End date"><button id="drApply" disabled>Apply</button></span><span class="rangeNow" id="rangeNow" aria-live="polite">—</span><button class="tog" id="pvTog" aria-pressed="false"><i></i>Preview layout</button>
 </div>
 
 <h1>Marketing performance, one source of truth.</h1>
@@ -204,8 +212,22 @@ svg.cv{width:100%;height:auto;display:block;overflow:visible}
 "use strict";
 var API="/api/snapshots", BM_URL="/data/benchmarks.json";
 var S=null, BM=null, PV=false, DAYS=30, HIST={ga4:null,clarity:null,linkedin:null,hubspot:null,ga4_agg:null};
+/* Range state: RAW caches the full fetched history per source; WIN is the selected
+   [start,end] window (inclusive, ISO dates); MODE tracks preset vs custom so labels
+   read correctly; LASTPRESET remembers which preset button to re-apply on refresh.
+   WIDE is fetched once and covers all stored history — the backend caps it to what
+   exists, so the date buttons never trigger a refetch, they just re-window RAW. */
+var RAW={ga4:null,clarity:null,linkedin:null,hubspot:null};
+var WIN={start:null,end:null}, MODE="preset", LASTPRESET=30, WIDE=400;
 
 function $(i){return document.getElementById(i);}
+function isoDay(d){return d.getUTCFullYear()+"-"+String(d.getUTCMonth()+1).padStart(2,"0")+"-"+String(d.getUTCDate()).padStart(2,"0");}
+function todayISO(){return isoDay(new Date());}
+function shiftISO(iso,delta){var d=new Date(iso+"T00:00:00Z");d.setUTCDate(d.getUTCDate()+delta);return isoDay(d);}
+function daysInclusive(a,b){if(!a||!b)return 0;return Math.round((new Date(b+"T00:00:00Z")-new Date(a+"T00:00:00Z"))/86400000)+1;}
+function fmtDay(iso){if(!iso)return "—";var d=new Date(iso+"T00:00:00Z");return d.toLocaleDateString("en-US",{month:"short",day:"numeric",timeZone:"UTC"});}
+function rowDate(r){return r.date||(r.pulled_at||"").slice(0,10);}
+function earliestISO(){var min=null;["ga4","clarity","linkedin","hubspot"].forEach(function(src){var raw=RAW[src];if(!raw||!Array.isArray(raw.rows))return;raw.rows.forEach(function(r){var d=rowDate(r);if(d&&(!min||d<min))min=d;});});return min||shiftISO(todayISO(),-89);}
 function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
 function full(v){return (v==null)?"—":"$"+Math.round(v).toLocaleString("en-US");}
 function money(v){if(v==null)return "—";if(Math.abs(v)>=1e6)return "$"+(v/1e6).toFixed(2)+"M";if(Math.abs(v)>=1000)return "$"+Math.round(v/1000)+"k";return "$"+Math.round(v);}
@@ -344,7 +366,7 @@ function hsRange(){
   var fp=first.pipeline||{}, lp=last.pipeline||{};
 
   out.ranged=true;
-  out.label="last "+DAYS+" days";
+  out.label=(MODE==="custom")?(fmtDay(WIN.start)+" – "+fmtDay(WIN.end)):("last "+DAYS+" days");
   out.span=first.date+" → "+last.date;
 
   /* point-in-time: latest wins, delta is informational */
@@ -381,8 +403,9 @@ function hsRange(){
 }
 function deltaTxt(v,fmt){
   if(v==null)return "";
-  if(v===0)return "no change vs "+DAYS+"d ago";
-  return (v>0?"↑ ":"↓ ")+(fmt?fmt(Math.abs(v)):num(Math.abs(v)))+" vs "+DAYS+"d ago";
+  var ref=(MODE==="custom")?("vs "+fmtDay(WIN.start)):("vs "+DAYS+"d ago");
+  if(v===0)return "no change "+ref;
+  return (v>0?"↑ ":"↓ ")+(fmt?fmt(Math.abs(v)):num(Math.abs(v)))+" "+ref;
 }
 
 /* ================= BOARD ================= */
@@ -974,14 +997,65 @@ function aggGA4(payload){
   return {channels:chArr,top_pages:pgArr,pages_at:pg._at||null};
 }
 
+/* Fetch the full stored history ONCE (WIDE); the backend caps it to what exists.
+   The date controls then re-window this cached data client-side — no refetch, and
+   custom ranges that end in the past work because we already hold every day. */
 function fetchHist(source){
-  return fetch(API+"?history="+source+"&days="+DAYS,{cache:"no-store"})
+  return fetch(API+"?history="+source+"&days="+WIDE,{cache:"no-store"})
     .then(function(r){return r.ok?r.json():null;})
-    .then(function(j){
-      HIST[source]=normHist(j,source);
-      if(source==="ga4")HIST.ga4_agg=aggGA4(j);
-    })
-    .catch(function(){HIST[source]=null;if(source==="ga4")HIST.ga4_agg=null;});
+    .then(function(j){RAW[source]=(j&&Array.isArray(j.rows))?j:null;})
+    .catch(function(){RAW[source]=null;});
+}
+
+/* Filter every source's raw rows to the selected [start,end] window, then run the
+   existing normalisers on the trimmed set. All the inflation-safe range maths
+   (hsRange latest−earliest, aggGA4 dedupe) operate unchanged on the filtered rows. */
+function inWin(r){var d=rowDate(r);return d&&d>=WIN.start&&d<=WIN.end;}
+function applyWindow(){
+  ["ga4","clarity","linkedin","hubspot"].forEach(function(src){
+    var raw=RAW[src];
+    if(!raw){HIST[src]=null;if(src==="ga4")HIST.ga4_agg=null;return;}
+    var f={rows:raw.rows.filter(inWin)};
+    HIST[src]=normHist(f,src);
+    if(src==="ga4")HIST.ga4_agg=aggGA4(f);
+  });
+  DAYS=daysInclusive(WIN.start,WIN.end);
+  syncControls();
+  if(S)render();
+}
+
+/* Preset windows always end today. "All" (n=0) spans the earliest stored day. */
+function setPreset(n){
+  MODE="preset";LASTPRESET=n;
+  WIN.end=todayISO();
+  WIN.start=(n>0)?shiftISO(WIN.end,-(n-1)):earliestISO();
+}
+
+/* Reflect current window in the date inputs, preset highlight, and readout pill. */
+function syncControls(){
+  var earliest=earliestISO(), t=todayISO();
+  var f=$("drFrom"), to=$("drTo");
+  if(f&&to){
+    f.min=earliest;f.max=t;to.min=earliest;to.max=t;
+    f.value=WIN.start||"";to.value=WIN.end||"";
+  }
+  var span=daysInclusive(WIN.start,WIN.end);
+  Array.prototype.forEach.call($("rangeSeg").children,function(b){
+    var d=+b.dataset.d, on=false;
+    if(MODE==="preset"&&WIN.end===t){
+      on=(d===0)?(WIN.start===earliest):(d===span);
+    }
+    b.setAttribute("aria-pressed",on?"true":"false");
+  });
+  var rn=$("rangeNow");
+  if(rn)rn.textContent="Showing "+fmtDay(WIN.start)+" – "+fmtDay(WIN.end)+" · "+span+"d";
+  validateApply();
+}
+
+function validateApply(){
+  var a=$("drApply");if(!a)return;
+  var f=$("drFrom").value, to=$("drTo").value;
+  a.disabled=!(f&&to&&f<=to);
 }
 
 function load(){
@@ -992,7 +1066,11 @@ function load(){
   ]).then(function(res){
     S=res[0];BM=res[1];
     return Promise.all([fetchHist("ga4"),fetchHist("clarity"),fetchHist("linkedin"),fetchHist("hubspot")]);
-  }).then(function(){render();})
+  }).then(function(){
+    /* keep an explicit custom window across refreshes; otherwise re-apply the last preset (ends today) */
+    if(!(MODE==="custom"&&WIN.start&&WIN.end))setPreset(LASTPRESET);
+    applyWindow();
+  })
    .catch(function(e){
     $("feed").className="pill off";$("feedTxt").textContent="Feed unreachable";
     var red=$("alertRed");red.classList.add("on");
@@ -1016,8 +1094,17 @@ Array.prototype.forEach.call(document.querySelectorAll(".tabs button"),function(
 });
 document.getElementById("rangeSeg").addEventListener("click",function(e){
   var b=e.target.closest("[data-d]");if(!b)return;
-  Array.prototype.forEach.call(this.children,function(x){x.setAttribute("aria-pressed","false");});
-  b.setAttribute("aria-pressed","true");DAYS=+b.dataset.d;load();
+  setPreset(+b.dataset.d);   /* preset window ends today; "All" (0) spans full history */
+  applyWindow();             /* re-window cached data client-side — no refetch */
+});
+/* Custom range: enable Apply only when both dates are valid, then apply on click. */
+$("drFrom").addEventListener("change",validateApply);
+$("drTo").addEventListener("change",validateApply);
+$("drApply").addEventListener("click",function(){
+  var f=$("drFrom").value, to=$("drTo").value;
+  if(!f||!to||f>to)return;
+  MODE="custom";WIN.start=f;WIN.end=to;
+  applyWindow();
 });
 $("refresh").addEventListener("click",load);
 load();
