@@ -595,6 +595,30 @@ function claritySize(mo){
   };
 }
 
+/* Clarity reports a bot-vs-human split on its tracked window: metrics.traffic carries
+   totalSessionCount (human) and totalBotSessionCount, and the "Traffic" slice of each
+   dimension list (channel_country, os_browser_device) carries the same split per bucket.
+   Headline totals come from metrics.traffic (authoritative); the dimension slices are used
+   only for the "where do the bots concentrate" callout. Returns null unless BOTH session
+   counts are present and numeric, so older snapshots without a bot count skip the panel. */
+function clarityTraffic(c){
+  if(!c||mode(c)!=="live")return null;
+  var d=c.data||{}, tr=(d.metrics&&d.metrics.traffic)||null;
+  if(!tr||typeof tr!=="object")return null;
+  var real=Number(tr.totalSessionCount), bot=Number(tr.totalBotSessionCount);
+  if(real!==real||bot!==bot)return null;
+  function slice(list){var out=null;(list||[]).forEach(function(e){if(e&&e.metricName==="Traffic")out=e.information||[];});return out||[];}
+  var dim=d.dimensions||{};
+  var buckets=slice(dim.channel_country).map(function(r){
+    return {label:(r.Channel||"?")+" · "+(r.Country||"?"),real:Number(r.totalSessionCount)||0,bot:Number(r.totalBotSessionCount)||0};
+  }).sort(function(a,b){return b.bot-a.bot;});
+  var botDevices=slice(dim.os_browser_device).map(function(r){
+    return {label:[r.OS,r.Browser,r.Device].filter(Boolean).join(" "),real:Number(r.totalSessionCount)||0,bot:Number(r.totalBotSessionCount)||0};
+  }).filter(function(x){return x.bot>0&&x.real===0;}).sort(function(a,b){return b.bot-a.bot;});
+  var total=real+bot;
+  return {real:real,bot:bot,total:total,share:total?(bot/total*100):0,buckets:buckets,botDevices:botDevices,window_days:d.window_days||null};
+}
+
 /* ================= WEBSITE ================= */
 function website(){
   var g=S.sources.ga4,c=S.sources.clarity,h='';
@@ -665,6 +689,26 @@ function website(){
         gm==="stub"
         ? "The snapshot being served was built "+esc(ago(S.built_at))+" and reports <code>mode: \"stub\"</code>, meaning it predates GA4's credentials being added. The next scheduled run at 10:00 UTC writes a live rollup — no action needed.<br><br>A snapshot is not rewritten when an environment variable changes; a later run has to replace it."
         : "No GA4 payload in the feed.")+
+      '</div></div>';
+  }
+
+  /* ---------- Traffic quality (Clarity human vs bot) ---------- */
+  var ct=(!PV)?clarityTraffic(c):null;
+  if(ct){
+    var topB=ct.buckets[0]||null;
+    var win=ct.window_days?("last "+ct.window_days+(ct.window_days===1?" day":" days")):"latest window";
+    var devTxt=ct.botDevices.length?ct.botDevices.slice(0,2).map(function(x){return x.label;}).join(", "):"";
+    h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Traffic quality · Clarity</h3>'+
+      '<span class="note">'+win+' · human vs bot</span>'+srcTag(c,"Clarity")+'</div><div class="cb">'+
+      '<div class="kpis" style="margin-bottom:12px">'+
+        kpi("HUMAN SESSIONS",num(ct.real),"real visitors Clarity tracked",null,mix(sp(),{hi:true}))+
+        kpi("BOT SESSIONS",num(ct.bot),"filtered as automated",null,sp())+
+        kpi("BOT SHARE",Math.round(ct.share)+"%","of tracked sessions",null,mix(sp(),{warn:ct.share>=25}))+
+      '</div>'+
+      bars([["Human",ct.real,"var(--teal)"],["Bot",ct.bot,"var(--warn)"]])+
+      (topB&&topB.bot>0?'<div class="foot warn" style="margin-top:12px">Nearly all bot traffic enters through a single bucket — <b>'+esc(topB.label)+'</b>: '+topB.bot+' bot vs '+topB.real+' human sessions.'+
+        (devTxt?' These fingerprint as automated clients ('+esc(devTxt)+') that register zero human visits.':'')+'</div>':'')+
+      '<div class="foot">Clarity flags automated traffic on its own tracked window — the human number is the one to quote. This is independent of the date range above and of GA4, which applies its own server-side bot filtering.</div>'+
       '</div></div>';
   }
 
