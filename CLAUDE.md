@@ -15,7 +15,8 @@ leaves CLAUDE.md stale is an incomplete change. When you add a "DO NOT REMOVE" e
 add a matching block here; when you change the data shape a panel depends on, update its
 rule and its verify step.
 
-Last substantive update: 2026-08-14 — date-range controls + Traffic-quality (bot) panel.
+Last substantive update: 2026-08-14 — date-range controls, Traffic-quality (bot) panel,
+Insights tab + Clarity bot-filter toggle.
 
 ## STATUS — READ THIS FIRST
 - Live at https://hdi-marketing-dashboard.netlify.app and the code on `main` matches it
@@ -106,6 +107,31 @@ Rules specific to this panel:
 - Never hardcode the counts. If Clarity returns no bot field, the card must disappear, not
   show a stale/zero number.
 
+## DO NOT REMOVE — THE INSIGHTS TAB + BOT-FILTER TOGGLE (load-bearing)
+Second tab, "Insights" (`data-t="ins"`, pane `#p-ins`), rendered by `insights()`. It is the
+interpretation layer: a "What's working, what's not" verdict strip (traffic trend, engagement
+vs benchmark, bot load, visitor→lead, sourced pipeline), then GA4 trend diagnostics (MoM/WoW/
+slope/engaged-rate), a correlation section, the Clarity human-vs-bot stored-history table, and
+a watch list. Preserve it. Restyle freely, but keep:
+- `insights()` and the stat helpers `_sum`/`_mean`/`pearson`/`slopePerDay`/`growthPct`/`pctTxt`,
+  and the `IB` researched-benchmark constants (each shown with its source in-UI).
+- The header toggle `#botTog` (INCLBOTS) and its handler.
+Rules specific to these:
+- `insights()` computes over the FULL stored GA4 history (`normHist({rows:RAW.ga4.rows},"ga4")`),
+  deliberately independent of the top date range — it is an over-time interpretation, not a
+  windowed view. Don't wire it to WIN/DAYS.
+- Every figure is computed live from the series with sample size (n) shown. Never hardcode a
+  verdict or a stat. Benchmarks in `IB` are external references (cited), not approved targets.
+- Correlation is labelled "not causation" and must stay that way. Do not relabel an observed
+  correlation as causal — the data is observational.
+- The bot filter (`INCLBOTS`, default false = human-only) governs CLARITY session figures only
+  (Behaviour panel "Sessions", Traffic-quality filter line). It must NOT be applied to GA4
+  numbers — Clarity's per-session bot detection does not map onto GA4 sessions, and GA4 filters
+  bots server-side already. Keep the filter Clarity-scoped.
+- The Clarity human-vs-bot history cannot be backfilled (Clarity's API only serves 72h); it
+  grows forward one stored day at a time. Don't add a "backfill Clarity" path — there's no
+  source for it.
+
 ## DATA / EDIT RULES (load-bearing — do not break)
 - Edit ONLY `index.html`. Keep `netlify.toml` + `_redirects` at the repo ROOT and
   `data/benchmarks.json` inside `data/`. Removing any 404s the `/api` proxy ("FEED UNREACHABLE").
@@ -175,6 +201,14 @@ Must be 200. Then open `https://hdi-marketing-dashboard.netlify.app/?v=NNN` and 
   ~43%). Confirm the numbers match `S.sources.clarity.data.metrics.traffic` and are NOT
   hardcoded; confirm the card is labeled by Clarity's own window (not the date range) and is
   not attached to the GA4 numbers.
+- Insights tab: the "What's working, what's not" strip renders live verdicts (traffic trend,
+  engagement vs 52–56%, bot load, visitor→lead, sourced pipeline); the Traffic-trend chart +
+  MoM/WoW/slope/engaged-rate compute from GA4 history; the Correlation section says "not
+  causation"; the Clarity human-vs-bot table shows the stored days. Confirm nothing is
+  hardcoded (numbers move as data flows) and it does NOT change when you switch the date range.
+- Bot filter: the header "Include bots" toggle flips the Website → Behaviour "Sessions" figure
+  between human-only (e.g. 68) and all-traffic (e.g. 119 incl. bots), and updates the
+  Traffic-quality filter line. It must not alter any GA4 number.
 
 ## NEVER TOUCH
 - The data engine site (`sweet-entremet-3ff236`) or its config. You only edit this repo.

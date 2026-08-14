@@ -179,7 +179,7 @@ svg.cv{width:100%;height:auto;display:block;overflow:visible}
   <span class="sp"></span>
   <span class="pill" id="built"><span class="dot"></span><span id="builtTxt">Loading…</span></span>
   <span class="pill" id="feed"><span class="dot"></span><span id="feedTxt">—</span><button id="refresh">refresh</button></span>
-  <span class="seg" id="rangeSeg" role="group" aria-label="Preset time range"><button data-d="7">7d</button><button data-d="30" aria-pressed="true">30d</button><button data-d="90">90d</button><button data-d="0">All</button></span><span class="dr" role="group" aria-label="Custom date range"><label for="drFrom">From</label><input type="date" id="drFrom" aria-label="Start date"><span class="sepx">→</span><label for="drTo">To</label><input type="date" id="drTo" aria-label="End date"><button id="drApply" disabled>Apply</button></span><span class="rangeNow" id="rangeNow" aria-live="polite">—</span><button class="tog" id="pvTog" aria-pressed="false"><i></i>Preview layout</button>
+  <span class="seg" id="rangeSeg" role="group" aria-label="Preset time range"><button data-d="7">7d</button><button data-d="30" aria-pressed="true">30d</button><button data-d="90">90d</button><button data-d="0">All</button></span><span class="dr" role="group" aria-label="Custom date range"><label for="drFrom">From</label><input type="date" id="drFrom" aria-label="Start date"><span class="sepx">→</span><label for="drTo">To</label><input type="date" id="drTo" aria-label="End date"><button id="drApply" disabled>Apply</button></span><span class="rangeNow" id="rangeNow" aria-live="polite">—</span><button class="tog" id="botTog" aria-pressed="false" title="Clarity bot filter"><i></i>Include bots</button><button class="tog" id="pvTog" aria-pressed="false"><i></i>Preview layout</button>
 </div>
 
 <h1>Marketing performance, one source of truth.</h1>
@@ -190,6 +190,7 @@ svg.cv{width:100%;height:auto;display:block;overflow:visible}
 
 <div class="tabs" role="tablist">
   <button role="tab" data-t="board" aria-selected="true">Board</button>
+  <button role="tab" data-t="ins" aria-selected="false">Insights</button>
   <button role="tab" data-t="camp" aria-selected="false">Campaigns</button>
   <button role="tab" data-t="pipe" aria-selected="false">Pipeline</button>
   <button role="tab" data-t="web" aria-selected="false">Website</button>
@@ -198,6 +199,7 @@ svg.cv{width:100%;height:auto;display:block;overflow:visible}
 </div>
 
 <div class="pane on" id="p-board"></div>
+<div class="pane" id="p-ins"></div>
 <div class="pane" id="p-camp"></div>
 <div class="pane" id="p-pipe"></div>
 <div class="pane" id="p-web"></div>
@@ -212,6 +214,11 @@ svg.cv{width:100%;height:auto;display:block;overflow:visible}
 "use strict";
 var API="/api/snapshots", BM_URL="/data/benchmarks.json";
 var S=null, BM=null, PV=false, DAYS=30, HIST={ga4:null,clarity:null,linkedin:null,hubspot:null,ga4_agg:null};
+/* INCLBOTS: the Clarity bot filter. false (default) = show human-only traffic (Clarity
+   already excludes bots from totalSessionCount); true = add bots back for an all-traffic
+   view. Governs Clarity-scoped numbers only — GA4 applies its own server-side filtering
+   and cannot be re-filtered by Clarity's per-session detection. */
+var INCLBOTS=false;
 /* Range state: RAW caches the full fetched history per source; WIN is the selected
    [start,end] window (inclusive, ISO dates); MODE tracks preset vs custom so labels
    read correctly; LASTPRESET remembers which preset button to re-apply on refresh.
@@ -708,7 +715,7 @@ function website(){
       bars([["Human",ct.real,"var(--teal)"],["Bot",ct.bot,"var(--warn)"]])+
       (topB&&topB.bot>0?'<div class="foot warn" style="margin-top:12px">Nearly all bot traffic enters through a single bucket — <b>'+esc(topB.label)+'</b>: '+topB.bot+' bot vs '+topB.real+' human sessions.'+
         (devTxt?' These fingerprint as automated clients ('+esc(devTxt)+') that register zero human visits.':'')+'</div>':'')+
-      '<div class="foot">Clarity flags automated traffic on its own tracked window — the human number is the one to quote. This is independent of the date range above and of GA4, which applies its own server-side bot filtering.</div>'+
+      '<div class="foot">Filter: <b>'+(INCLBOTS?"all traffic (bots included)":"human only (bots excluded)")+'</b> — toggle "Include bots" in the header to switch the Clarity session figures. Clarity flags automated traffic on its own tracked window; the human number is the one to quote. This is independent of the date range and of GA4, which applies its own server-side bot filtering.</div>'+
       '</div></div>';
   }
 
@@ -727,7 +734,7 @@ function website(){
       '</div>'+
       (cm.engagement_time!=null||cm.traffic!=null?
         '<table><tbody>'+
-        (cm.traffic!=null?'<tr><td>Sessions</td><td class="n">'+num(cm.traffic)+'</td></tr>':'')+
+        (ct?'<tr><td>Sessions</td><td class="n">'+num(INCLBOTS?ct.total:ct.real)+' <span style="color:var(--mute);font-size:10px">'+(INCLBOTS?"all traffic · incl "+ct.bot+" bots":"human only")+'</span></td></tr>':(cm.traffic!=null?'<tr><td>Sessions</td><td class="n">'+num(cm.traffic)+'</td></tr>':''))+
         (cm.engagement_time!=null?'<tr><td>Active engagement</td><td class="n">'+num(cm.engagement_time)+'s</td></tr>':'')+
         (cm.script_errors!=null?'<tr><td>Script errors</td><td class="'+(cm.script_errors?"z":"n")+'">'+cm.script_errors+'% of sessions</td></tr>':'')+
         '</tbody></table>':'')+
@@ -917,7 +924,125 @@ function shell(){
         "No value is estimated, interpolated, or carried forward. A source with no data renders as a dash, never as zero.");
 }
 
-function render(){shell();board();campaigns();pipeline();website();linkedin();benchmarks();}
+/* ================= INSIGHTS ================= */
+/* Transparent stats — every figure below is computed here from the live series, with
+   sample size stated. Nothing is asserted as causal; correlations are labelled as such. */
+function _sum(a){return a.reduce(function(x,y){return x+(y||0);},0);}
+function _mean(a){return a.length?_sum(a)/a.length:0;}
+function pearson(xs,ys){
+  var n=Math.min(xs.length,ys.length);if(n<3)return null;
+  var mx=_mean(xs.slice(0,n)),my=_mean(ys.slice(0,n)),sxy=0,sxx=0,syy=0;
+  for(var i=0;i<n;i++){var dx=xs[i]-mx,dy=ys[i]-my;sxy+=dx*dy;sxx+=dx*dx;syy+=dy*dy;}
+  if(sxx===0||syy===0)return null;
+  return sxy/Math.sqrt(sxx*syy);
+}
+function slopePerDay(ys){
+  var n=ys.length;if(n<2)return null;var mx=(n-1)/2,my=_mean(ys),nu=0,de=0;
+  for(var i=0;i<n;i++){nu+=(i-mx)*(ys[i]-my);de+=(i-mx)*(i-mx);}
+  return de?nu/de:null;
+}
+function growthPct(cur,prev){return (prev&&prev>0)?((cur-prev)/prev*100):null;}
+function pctTxt(v,dp){return v==null?"—":((v>0?"+":"")+v.toFixed(dp==null?0:dp)+"%");}
+
+/* Researched industry benchmarks used by the Insights verdicts. Sources shown in-UI. */
+var IB={
+  engRate:{lo:52,hi:56,src:"Databox GA4 benchmarks — SaaS/prof-services ~52%, all-industry median 56%"},
+  botShare:{ref:50,src:"Imperva 2025 Bad Bot Report — automated traffic is now >50% of the global web"},
+  v2l:{lo:3,hi:5,elo:1,ehi:3,src:"2026 B2B funnel benchmarks — healthcare 3–5%, enterprise software 1–3%"},
+  srcPipe:{lo:30,hi:60,src:"benchmarks.json — marketing-sourced share of pipeline"}
+};
+
+function insights(){
+  if(PV){$("p-ins").innerHTML='<div class="card"><div class="cb">'+empty("Insights uses live data","Turn off Preview layout to see the interpretation layer — it reads the real stored history, not synthetic samples.")+'</div></div>';return;}
+  var ga=(RAW.ga4&&Array.isArray(RAW.ga4.rows))?normHist({rows:RAW.ga4.rows},"ga4"):(HIST.ga4||null);
+  if(!ga||ga.length<7){
+    $("p-ins").innerHTML='<div class="card"><div class="ch"><h3>Insights</h3></div><div class="cb">'+
+      empty("Not enough history yet","The interpretation layer needs at least a week of stored GA4 days to compute trends. It fills in as the pipeline accumulates history.")+'</div></div>';
+    return;
+  }
+  var n=ga.length, span=ga[0].date+" → "+ga[n-1].date;
+  var sess=ga.map(function(d){return d.sessions||0;});
+  var eng=ga.map(function(d){return d.engaged||0;});
+  var ke=ga.map(function(d){return d.key_events||0;});
+  function tail(a,k){return a.slice(Math.max(0,a.length-k));}
+  function prevWin(a,k){var end=a.length-k;return a.slice(Math.max(0,end-k),end);}
+  var s30=_sum(tail(sess,30)), s30p=_sum(prevWin(sess,30));
+  var s7=_sum(tail(sess,7)), s7p=_sum(prevWin(sess,7));
+  var mom=growthPct(s30,s30p), wow=growthPct(s7,s7p);
+  var e30=_sum(tail(eng,30)), ke30=_sum(tail(ke,30));
+  var engRate=s30>0?(e30/s30*100):null;
+  var sl=slopePerDay(sess);
+  var r_se=pearson(sess,eng);
+  var ct=clarityTraffic(S.sources.clarity);
+
+  /* ---------- HEADLINE: wins & fails ---------- */
+  function vc(title,value,sub,good){return kpi(title,value,sub,null,good===true?mix(sp(),{ok:true}):good===false?mix(sp(),{warn:true}):sp());}
+  var cards='';
+  cards+=vc("TRAFFIC TREND",pctTxt(mom),"sessions · last 30d vs prior 30d",mom==null?null:mom>=0);
+  cards+=vc("ENGAGEMENT",engRate!=null?engRate.toFixed(0)+"%":"—","vs "+IB.engRate.lo+"–"+IB.engRate.hi+"% benchmark",engRate==null?null:engRate>=IB.engRate.lo);
+  cards+=vc("BOT LOAD",ct?Math.round(ct.share)+"%":"—","of Clarity traffic · vs ~"+IB.botShare.ref+"% global",ct?ct.share<=IB.botShare.ref:null);
+  cards+=vc("VISITOR → LEAD",ke30>0&&s30>0?(ke30/s30*100).toFixed(1)+"%":"blocked",ke30>0?"vs "+IB.v2l.lo+"–"+IB.v2l.hi+"% benchmark":"no key events set in GA4",ke30>0?null:false);
+  var srcNow=(BM&&BM.marketing_sourced_pipeline_pct&&BM.marketing_sourced_pipeline_pct.hdi_current!=null)?BM.marketing_sourced_pipeline_pct.hdi_current:0;
+  cards+=vc("SOURCED PIPELINE",srcNow+"%","vs "+IB.srcPipe.lo+"–"+IB.srcPipe.hi+"% · attribution gap",srcNow>=IB.srcPipe.lo);
+
+  var h='<div class="card" style="margin-bottom:12px"><div class="ch"><h3>What\'s working, what\'s not</h3>'+
+    '<span class="note">GA4 '+esc(span)+' · '+n+' days</span></div><div class="cb">'+
+    '<div class="kpis">'+cards+'</div>'+
+    '<div class="foot">Green = at or above the cited benchmark; red = below, blocked, or a measurement gap. Benchmarks are external references, not approved targets. Detail and sources below.</div>'+
+    '</div></div>';
+
+  /* ---------- DETAIL: traffic trend ---------- */
+  var t=trend(ga.map(function(d){return {label:(d.date||"").slice(5),v:d.sessions};}));
+  h+='<div class="card" style="margin-bottom:12px"><div class="ch"><h3>Traffic trend</h3>'+
+    '<span class="note">GA4 sessions, full stored history</span>'+srcTag(S.sources.ga4,"GA4")+'</div><div class="cb">'+
+    (t?t.svg:building("GA4",n))+
+    '<div class="kpis" style="margin-top:12px">'+
+      kpi("MONTH OVER MONTH",pctTxt(mom),num(s30)+" vs "+num(s30p)+" sessions",null,mix(sp(),mom!=null&&mom<0?{warn:true}:{}))+
+      kpi("WEEK OVER WEEK",pctTxt(wow),num(s7)+" vs "+num(s7p)+" sessions",null,mix(sp(),wow!=null&&wow<0?{warn:true}:{}))+
+      kpi("TREND",sl==null?"—":(sl>=0?"↑ ":"↓ ")+Math.abs(sl).toFixed(1)+"/day","least-squares slope over "+n+" days",null,sp())+
+      kpi("ENGAGED RATE",engRate!=null?engRate.toFixed(0)+"%":"—","benchmark "+IB.engRate.lo+"–"+IB.engRate.hi+"%",null,mix(sp(),engRate!=null&&engRate<IB.engRate.lo?{warn:true}:{ok:true}))+
+    '</div>'+
+    '<div class="foot">Benchmark: '+esc(IB.engRate.src)+'.</div>'+
+    '</div></div>';
+
+  /* ---------- DETAIL: correlation ---------- */
+  if(r_se!=null){
+    var strength=Math.abs(r_se)>=0.7?"strong":Math.abs(r_se)>=0.4?"moderate":"weak";
+    h+='<div class="card" style="margin-bottom:12px"><div class="ch"><h3>Correlation</h3><span class="note">not causation</span></div><div class="cb">'+
+      '<p style="margin:0 0 8px">Daily sessions and engaged sessions show a <b>'+strength+'</b> correlation (r = '+r_se.toFixed(2)+', n = '+n+'). '+
+      'That is expected — engaged sessions are a subset of sessions — so it confirms the data is internally consistent, not that one drives the other.</p>'+
+      '<div class="foot">More days will let us test cross-source links (e.g. channel mix vs engagement) with enough power to be worth acting on. With observational data we report correlation and a hypothesis; we do not claim causation.</div>'+
+      '</div></div>';
+  }
+
+  /* ---------- DETAIL: Clarity human-vs-bot trend (our stored history) ---------- */
+  var clr=(RAW.clarity&&Array.isArray(RAW.clarity.rows))?RAW.clarity.rows.filter(function(r){return r.data&&r.data.mode==="live"&&r.data.metrics&&r.data.metrics.traffic&&r.data.metrics.traffic.totalBotSessionCount!=null;}):[];
+  var byd={};
+  clr.forEach(function(r){var d=r.date||(r.pulled_at||"").slice(0,10);var tr=r.data.metrics.traffic;var cur=byd[d];if(!cur||newer(r.pulled_at,cur.pulled_at))byd[d]={date:d,pulled_at:r.pulled_at,human:Number(tr.totalSessionCount)||0,bot:Number(tr.totalBotSessionCount)||0};});
+  var cdays=Object.keys(byd).sort().map(function(k){return byd[k];});
+  if(cdays.length){
+    var rowsH=cdays.map(function(x){var tot=x.human+x.bot;var sh=tot?Math.round(x.bot/tot*100):0;return '<tr><td>'+esc(x.date)+'</td><td class="n">'+x.human+'</td><td class="z">'+x.bot+'</td><td class="'+(sh>=IB.botShare.ref?"z":"n")+'">'+sh+'%</td></tr>';}).join("");
+    h+='<div class="card" style="margin-bottom:12px"><div class="ch"><h3>Traffic quality over time · Clarity</h3>'+
+      '<span class="note">our stored history · '+cdays.length+' day'+(cdays.length===1?"":"s")+'</span>'+srcTag(S.sources.clarity,"Clarity")+'</div><div class="cb">'+
+      '<table><thead><tr><th>Date</th><th>Human</th><th>Bot</th><th>Bot share</th></tr></thead><tbody>'+rowsH+'</tbody></table>'+
+      '<div class="foot ok">Clarity only serves the last 72 hours, so this history exists only because the pipeline stores each day into our own database. It cannot be backfilled before the first stored day — it grows forward by one point daily. Benchmark: '+esc(IB.botShare.src)+'.</div>'+
+      '</div></div>';
+  }
+
+  /* ---------- WATCH LIST: blocked / structural ---------- */
+  var watch=[];
+  if(!(ke30>0))watch.push("<b>Visitor-to-lead is unmeasurable</b> — GA4 has zero key events configured, so the conversion rate cannot be computed (a 0% would be a false claim that nobody converts). Configuring form-submit key events in GA4 unblocks it.");
+  if(srcNow<IB.srcPipe.lo)watch.push("<b>Marketing-sourced pipeline reads "+srcNow+"%</b> vs a 30–60% norm — deals carry no campaign association in HubSpot, so this is an attribution gap, not necessarily an execution one.");
+  if(ct&&ct.share>0)watch.push("<b>"+Math.round(ct.share)+"% of Clarity traffic is bots</b>, concentrated in a single channel/country bucket — quote the human number, and use the header toggle to see the all-traffic view.");
+  if(watch.length){
+    h+='<div class="card"><div class="ch"><h3>Watch list</h3><span class="note">gaps that limit interpretation</span></div><div class="cb"><ul style="margin:0;padding-left:18px">'+
+      watch.map(function(w){return '<li style="margin-bottom:6px">'+w+'</li>';}).join("")+'</ul></div></div>';
+  }
+
+  $("p-ins").innerHTML=h;
+}
+
+function render(){shell();board();insights();campaigns();pipeline();website();linkedin();benchmarks();}
 
 /* History shape (verified live):
    { source, days: <integer request param>, rows: [ { date, pulled_at, data: {...} } ] }
@@ -1126,6 +1251,10 @@ $("pvTog").addEventListener("click",function(){
   PV=!PV;this.setAttribute("aria-pressed",PV?"true":"false");
   document.body.classList.toggle("preview",PV);
   document.title=(PV?"[PREVIEW] ":"")+"HDI · Marketing Performance";
+  if(S)render();
+});
+$("botTog").addEventListener("click",function(){
+  INCLBOTS=!INCLBOTS;this.setAttribute("aria-pressed",INCLBOTS?"true":"false");
   if(S)render();
 });
 Array.prototype.forEach.call(document.querySelectorAll(".tabs button"),function(b){

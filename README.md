@@ -30,8 +30,10 @@ short orientation; `CLAUDE.md` is the full contract.
 - Clarity is a `metrics{}` object (traffic/scroll_depth/rage_clicks…), not a daily array
 - Benchmarks show as "reference until approved"
 - Preserve the load-bearing UI: the date-range controls (`rangeSeg`, `drFrom`, `drTo`,
-  `drApply`, `rangeNow` + the `fetchHist`/`applyWindow` wiring) and the Traffic-quality
-  (bot) panel on the Website tab. Restyling is fine; rewiring is not. See `CLAUDE.md`.
+  `drApply`, `rangeNow` + the `fetchHist`/`applyWindow` wiring), the Traffic-quality (bot)
+  panel on the Website tab, the **Insights tab** (`insights()`, `#p-ins`), and the
+  **bot-filter toggle** (`#botTog` / `INCLBOTS`). Restyling is fine; rewiring is not. The bot
+  filter is Clarity-scoped and must never be applied to GA4 numbers. See `CLAUDE.md`.
 
 ## Editing
 Read `CLAUDE.md`, then: `git pull` → branch → edit `index.html` (and `CLAUDE.md` if the
