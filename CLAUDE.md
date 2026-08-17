@@ -89,19 +89,26 @@ calls. Restyle the controls freely — just don't delete the IDs above or rewire
 The Website tab has a "Traffic quality · Clarity" card ABOVE the "Behaviour · Clarity"
 card. It surfaces the human-vs-bot split otherwise buried in the Clarity payload (a large
 share of Clarity sessions are automated). Preserve it. Restyle freely, but keep:
-- `clarityTraffic(c)` — reads `metrics.traffic.totalSessionCount` (human) and
-  `.totalBotSessionCount` (bot), plus the "Traffic" slice of `dimensions.channel_country`
-  and `dimensions.os_browser_device` for the concentration + device-fingerprint callouts.
-  Returns null unless BOTH counts are numeric, so older snapshots simply skip the card.
-- The render block in `website()` that draws HUMAN / BOT / BOT SHARE KPIs, the human-vs-bot
-  split bar, and the two foot notes.
+- `clarityWindow()` — sums human (`totalSessionCount`) and bot (`totalBotSessionCount`)
+  across every stored Clarity day that falls inside the selected window `WIN`, dedup'd to
+  one row per day (freshest `pulled_at` wins). This is what feeds the HUMAN / BOT / TOTAL
+  headline KPIs and the split bar, so the panel uses the SAME timeframe as the rest of the
+  page (Verona A5, Aug 17). Returns null when no stored day is in range.
+- `clarityTraffic(c)` — reads the LATEST snapshot's `metrics.traffic` plus the "Traffic"
+  slice of `dimensions.channel_country` and `dimensions.os_browser_device`. Still used for
+  the bot-concentration + device-fingerprint callouts (those exist only on the latest
+  snapshot, not per stored day). Returns null unless both session counts are numeric.
+- The render block in `website()` draws HUMAN / BOT / TOTAL VISITORS KPIs (plain counts, no
+  percentages — Henry's call), the human-vs-bot split bar, and the foot notes.
 
 Rules specific to this panel:
 - Headline totals come from `metrics.traffic` (authoritative). The per-bucket dimension
   slice can sum slightly differently — a known Clarity quirk; do not "reconcile" them by
   summing the dimension rows into the headline.
-- This is a CURRENT-SNAPSHOT view of Clarity's own tracked window (`window_days`), NOT the
-  7/30/90 date range. Don't wire it to `WIN`/`DAYS` — label it by `window_days`.
+- The headline counts ARE windowed to `WIN` via `clarityWindow()` (A5). We only have a few
+  days of stored Clarity history so far, so 7/30/90 may show the same sum until more days
+  accumulate — that is correct, not a bug. The bot-concentration callout stays latest-
+  snapshot-only. Label the panel with `winDesc()`.
 - Keep it Clarity-scoped and separate from GA4. GA4 applies its own server-side bot
   filtering, so never imply the GA4 Sessions number carries this bot share.
 - Never hardcode the counts. If Clarity returns no bot field, the card must disappear, not
@@ -128,8 +135,16 @@ Preserve it. Restyle freely, but keep:
 - Shared helpers `ga4Window()` (windowed current/prior sums) and `ga4Channels(curDates)` (engaged
   rate + sessions per channel) — used by BOTH Insights and the Website tab so they compute
   identically. `benchPos()` returns the AHEAD/IN LINE/BEHIND label. Don't fork these per-tab.
+- The metric CARDS (both tabs) lead with the period-over-period % change ("↑ +22% vs prior N
+  days") and demote the industry benchmark to a secondary "industry reference …" note; they are
+  coloured by direction of change, not by benchmark position, and never use the word "behind"
+  (Verona A2, Aug 17). The AHEAD/IN LINE/BEHIND wording survives ONLY in the dedicated "HDI vs
+  industry benchmark" table, where it is labelled.
 - `trend(series, opts)` supports `opts.trendline` (dashed regression) and `opts.benchmark`
-  (dashed reference line) — the Insights charts use both. Don't remove them.
+  (dashed reference line). EVERY line chart carries `trendline:true` (Verona A3). The on-chart
+  `benchmark` reference line was REMOVED from the engagement-trend chart (Verona A4: an
+  unlabelled ~50% line confused the read); benchmark context now lives in the table + card
+  notes, not as a bare line. Keep `trendline` on all charts.
 - Website tab GA4 section uses the same `ga4Window()`/`ga4Channels()`: Sessions/Visitors show the
   period comparison, Engagement rate shows its benchmark position, and "Channels — what's driving
   results" shows engaged rate + each channel's share of sessions. It does NOT show KEY EVENTS or
