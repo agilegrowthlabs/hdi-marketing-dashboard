@@ -659,6 +659,24 @@ function clarityWindow(){
   return {real:real,bot:bot,total:real+bot,days:keys.length};
 }
 
+/* Average Clarity's behaviour metrics (scroll depth, rage/dead/quick-back %, active
+   engagement, script errors) over the windowed stored days, so the Behaviour card moves
+   with the date filter instead of showing only the latest single day's snapshot. These are
+   per-session percentages/seconds, so the daily mean is the right roll-up. `hist` is the
+   already-windowed HIST.clarity (one row per day in range). Returns null if empty. */
+function clarityAgg(hist){
+  if(!hist||!hist.length)return null;
+  var keys=["scroll_depth","rage_clicks","dead_clicks","quickback_clicks","script_errors","engagement_time"];
+  var acc={};keys.forEach(function(k){acc[k]=[];});
+  hist.forEach(function(x){
+    var m=claritySize(x.metrics||x);
+    keys.forEach(function(k){var v=m[k];if(v!=null&&!isNaN(v))acc[k].push(Number(v));});
+  });
+  function avg(a){return a.length?a.reduce(function(s,v){return s+v;},0)/a.length:null;}
+  var out={days:hist.length};keys.forEach(function(k){out[k]=avg(acc[k]);});
+  return out;
+}
+
 /* ================= WEBSITE ================= */
 function website(){
   var g=S.sources.ga4,c=S.sources.clarity,h='';
@@ -756,24 +774,30 @@ function website(){
       '</div></div>';
   }
 
-  /* ---------- Clarity ---------- */
+  /* ---------- Clarity behaviour (windowed averages so it tracks the date filter) ---------- */
   if(cm)cm=claritySize(cm);
-  if(cm&&Object.keys(cm).length&&(cm.scroll_depth!=null||cm.traffic!=null||cm.rage_clicks!=null)){
+  var cAgg=(cHist&&cHist.length)?clarityAgg(cHist):null;   // averaged over the selected window
+  var hasCm=cm&&Object.keys(cm).length&&(cm.scroll_depth!=null||cm.traffic!=null||cm.rage_clicks!=null);
+  if(hasCm||cAgg){
+    var CB=cAgg||cm;                                        // prefer windowed averages
     var days=(cHist&&cHist.length)||null;
+    var rp=function(v){return v!=null?Math.round(v)+"%":"—";};
+    var avgLbl=cAgg?("avg over "+winDesc()+" · "+days+" day"+(days===1?"":"s")+" with data"):"latest window";
+    var perDay=cAgg?' · avg/day':'';
     h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Behaviour · Clarity</h3>'+
-      '<span class="note">'+(days?days+' days in our database':'latest window')+'</span>'+srcTag(c,"Clarity")+'</div><div class="cb">'+
+      '<span class="note">'+esc(avgLbl)+'</span>'+srcTag(c,"Clarity")+'</div><div class="cb">'+
       '<div class="kpis" style="margin-bottom:12px">'+
-        kpi("SCROLL DEPTH",cm.scroll_depth!=null?cm.scroll_depth+"%":"—","how far people read",null,sp())+
-        kpi("RAGE CLICKS",cm.rage_clicks!=null?cm.rage_clicks+"%":"—","of sessions · frustration signal",null,sp())+
-        kpi("DEAD CLICKS",cm.dead_clicks!=null?cm.dead_clicks+"%":"—","of sessions · clicks that do nothing",null,sp())+
-        kpi("QUICK BACKS",cm.quickback_clicks!=null?cm.quickback_clicks+"%":"—","of sessions · landed and left",null,sp())+
-        kpi("DAYS STORED",days?String(days):"—","beyond the 3-day API window",null,mix(sp(),{hi:true}))+
+        kpi("SCROLL DEPTH",rp(CB.scroll_depth),"how far people read"+perDay,null,sp())+
+        kpi("RAGE CLICKS",rp(CB.rage_clicks),"of sessions · frustration signal"+perDay,null,sp())+
+        kpi("DEAD CLICKS",rp(CB.dead_clicks),"of sessions · clicks that do nothing"+perDay,null,sp())+
+        kpi("QUICK BACKS",rp(CB.quickback_clicks),"of sessions · landed and left"+perDay,null,sp())+
+        kpi("DAYS STORED",days?String(days):"—","days with data in range",null,mix(sp(),{hi:true}))+
       '</div>'+
-      (cm.engagement_time!=null||cm.traffic!=null?
+      ((CB.engagement_time!=null||cw||ct||(cm&&cm.traffic!=null))?
         '<table><tbody>'+
-        ((cw||ct)?'<tr><td>Sessions</td><td class="n">'+num(cw?(INCLBOTS?cw.total:cw.real):(INCLBOTS?ct.total:ct.real))+' <span style="color:var(--mute);font-size:10px">'+(INCLBOTS?"all traffic · incl "+(cw?cw.bot:ct.bot)+" bots":"human only")+'</span></td></tr>':(cm.traffic!=null?'<tr><td>Sessions</td><td class="n">'+num(cm.traffic)+'</td></tr>':''))+
-        (cm.engagement_time!=null?'<tr><td>Active engagement</td><td class="n">'+num(cm.engagement_time)+'s</td></tr>':'')+
-        (cm.script_errors!=null?'<tr><td>Script errors</td><td class="'+(cm.script_errors?"z":"n")+'">'+cm.script_errors+'% of sessions</td></tr>':'')+
+        ((cw||ct)?'<tr><td>Sessions</td><td class="n">'+num(cw?(INCLBOTS?cw.total:cw.real):(INCLBOTS?ct.total:ct.real))+' <span style="color:var(--mute);font-size:10px">'+(INCLBOTS?"all traffic · incl "+(cw?cw.bot:ct.bot)+" bots":"human only")+(cw?" · summed over "+esc(winDesc()):"")+'</span></td></tr>':((cm&&cm.traffic!=null)?'<tr><td>Sessions</td><td class="n">'+num(cm.traffic)+'</td></tr>':''))+
+        (CB.engagement_time!=null?'<tr><td>Active engagement</td><td class="n">'+Math.round(CB.engagement_time)+'s'+(cAgg?' <span style="color:var(--mute);font-size:10px">avg/day</span>':'')+'</td></tr>':'')+
+        (CB.script_errors!=null?'<tr><td>Script errors</td><td class="'+(CB.script_errors?"z":"n")+'">'+Math.round(CB.script_errors)+'% of sessions</td></tr>':'')+
         '</tbody></table>':'')+
       (cHist&&cHist.length>1?(function(){
         var t2=trend(cHist.map(function(x){
@@ -782,7 +806,7 @@ function website(){
         }),{fmt:function(v){return v+"%";},trendline:true});
         return t2?'<div style="margin-top:12px">'+t2.svg+'</div>':"";
       })():building("Clarity",days||1))+
-      '<div class="foot ok">Clarity\'s API serves only the last 3 days. Everything beyond that exists solely because this pipeline stored it into our own database — the stored copy is the only copy.</div>'+
+      '<div class="foot ok">Scroll depth, rage / dead / quick-back rates and active engagement are <b>averaged across '+esc(cAgg?winDesc():"the latest window")+'</b> from our stored history, so they move with the date filter. Clarity\'s API serves only the last 3 days — everything beyond that exists only because this pipeline stores each day into our own database.</div>'+
       '</div></div>';
   } else {
     var cmd=mode(c);
@@ -1133,11 +1157,11 @@ function insights(){
   var clr=(RAW.clarity&&Array.isArray(RAW.clarity.rows))?RAW.clarity.rows.filter(function(r){return r.data&&r.data.mode==="live"&&r.data.metrics&&r.data.metrics.traffic&&r.data.metrics.traffic.totalBotSessionCount!=null;}):[];
   var byd={};
   clr.forEach(function(r){var d=r.date||(r.pulled_at||"").slice(0,10);var tr=r.data.metrics.traffic;var cur=byd[d];if(!cur||newer(r.pulled_at,cur.pulled_at))byd[d]={date:d,pulled_at:r.pulled_at,human:Number(tr.totalSessionCount)||0,bot:Number(tr.totalBotSessionCount)||0};});
-  var cdays=Object.keys(byd).sort().map(function(k){return byd[k];});
+  var cdays=Object.keys(byd).filter(function(d){return d>=WIN.start&&d<=WIN.end;}).sort().map(function(k){return byd[k];});
   if(cdays.length){
     var rowsH=cdays.map(function(x){var tot=x.human+x.bot;return '<tr><td>'+esc(x.date)+'</td><td class="n">'+x.human+'</td><td class="z">'+x.bot+'</td><td class="n">'+tot+'</td></tr>';}).join("");
     h+='<div class="card" style="margin-bottom:12px"><div class="ch"><h3>Traffic quality over time · Clarity</h3>'+
-      '<span class="note">our stored history · '+cdays.length+' day'+(cdays.length===1?"":"s")+'</span>'+srcTag(S.sources.clarity,"Clarity")+'</div><div class="cb">'+
+      '<span class="note">'+esc(winDesc())+' · '+cdays.length+' day'+(cdays.length===1?"":"s")+' with data</span>'+srcTag(S.sources.clarity,"Clarity")+'</div><div class="cb">'+
       '<table><thead><tr><th>Date</th><th>Human</th><th>Bot</th><th>Total</th></tr></thead><tbody>'+rowsH+'</tbody></table>'+
       '<div class="foot ok">These are Clarity\'s behaviour-sample counts (dozens), not total site traffic — see "How to read GA4 vs Clarity" above. Clarity only serves the last 72 hours, so this history exists only because the pipeline stores each day into our own database. It cannot be backfilled before the first stored day — it grows forward one point per day.</div>'+
       '</div></div>';

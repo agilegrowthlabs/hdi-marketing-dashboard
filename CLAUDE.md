@@ -94,6 +94,11 @@ share of Clarity sessions are automated). Preserve it. Restyle freely, but keep:
   one row per day (freshest `pulled_at` wins). This is what feeds the HUMAN / BOT / TOTAL
   headline KPIs and the split bar, so the panel uses the SAME timeframe as the rest of the
   page (Verona A5, Aug 17). Returns null when no stored day is in range.
+- `clarityAgg(hist)` — averages the behaviour metrics (scroll depth, rage/dead/quick-back
+  %, active engagement, script errors) across the windowed stored days, so the "Behaviour ·
+  Clarity" card MOVES with the date filter instead of showing the latest single day (fixes
+  Henry's "1 day clarity data" report, Aug 17). These are per-session %/seconds, so the daily
+  mean is the correct roll-up; the card is labelled "avg over <range> · N days with data".
 - `clarityTraffic(c)` — reads the LATEST snapshot's `metrics.traffic` plus the "Traffic"
   slice of `dimensions.channel_country` and `dimensions.os_browser_device`. Still used for
   the bot-concentration + device-fingerprint callouts (those exist only on the latest
