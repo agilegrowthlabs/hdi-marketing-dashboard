@@ -119,9 +119,21 @@ trend chart; a "Correlation & causation" card (states the correlation, then expl
 can't claim as causal); a "How to read GA4 vs Clarity" context box; the Clarity human-vs-bot
 stored-history table; a green "What leadership should take away" box; and a "Not yet measured"
 roadmap note. Nothing from Clarity sits on the GA4 strip, so the two never appear to contradict.
+The tab is DRIVEN BY THE DATE FILTER: `ga4Window()` scopes GA4 to the selected range `WIN` and
+compares it to the equal-length window immediately before it (so "vs prior N days" is like-for-
+like, and the labels say the actual N — never quarterly). A comparison only shows when the prior
+window has comparable data coverage, else it reads "no prior period in range" (prevents the
+divide-by-near-zero +thousands% you get when a window reaches before our May-15 data start).
 Preserve it. Restyle freely, but keep:
+- Shared helpers `ga4Window()` (windowed current/prior sums) and `ga4Channels(curDates)` (engaged
+  rate + sessions per channel) — used by BOTH Insights and the Website tab so they compute
+  identically. `benchPos()` returns the AHEAD/IN LINE/BEHIND label. Don't fork these per-tab.
 - `trend(series, opts)` supports `opts.trendline` (dashed regression) and `opts.benchmark`
   (dashed reference line) — the Insights charts use both. Don't remove them.
+- Website tab GA4 section uses the same `ga4Window()`/`ga4Channels()`: Sessions/Visitors show the
+  period comparison, Engagement rate shows its benchmark position, and "Channels — what's driving
+  results" shows engaged rate + each channel's share of sessions. It does NOT show KEY EVENTS or
+  VISITOR TO LEAD (not collected yet). Keep those off both tabs until the data exists.
 - `insights()` and the stat helpers `_sum`/`_mean`/`pearson`/`slopePerDay`/`growthPct`/`pctTxt`,
   and the `IB` researched-benchmark constants (each shown with its source in-UI).
 - The header toggle `#botTog` (INCLBOTS) and its handler.
