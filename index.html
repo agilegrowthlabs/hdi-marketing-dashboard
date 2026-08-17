@@ -715,7 +715,7 @@ function website(){
       bars([["Human",ct.real,"var(--teal)"],["Bot",ct.bot,"var(--warn)"]])+
       (topB&&topB.bot>0?'<div class="foot warn" style="margin-top:12px">Nearly all bot traffic enters through a single bucket — <b>'+esc(topB.label)+'</b>: '+topB.bot+' bot vs '+topB.real+' human sessions.'+
         (devTxt?' These fingerprint as automated clients ('+esc(devTxt)+') that register zero human visits.':'')+'</div>':'')+
-      '<div class="foot">Filter: <b>'+(INCLBOTS?"all traffic (bots included)":"human only (bots excluded)")+'</b> — toggle "Include bots" in the header to switch the Clarity session figures. Clarity flags automated traffic on its own tracked window; the human number is the one to quote. This is independent of the date range and of GA4, which applies its own server-side bot filtering.</div>'+
+      '<div class="foot">Filter: <b>'+(INCLBOTS?"all traffic (bots included)":"human only (bots excluded)")+'</b> — toggle "Include bots" in the header to switch the Clarity session figures. These are Clarity\'s <b>behaviour-sample</b> counts (dozens), not total site traffic — GA4 above is the volume number (thousands). Clarity flags automated traffic on its own window; use it for bot detection and behaviour, GA4 for how much traffic. Independent of the date range and of GA4\'s own server-side bot filtering.</div>'+
       '</div></div>';
   }
 
@@ -963,46 +963,63 @@ function insights(){
   var n=ga.length, span=ga[0].date+" → "+ga[n-1].date;
   var sess=ga.map(function(d){return d.sessions||0;});
   var eng=ga.map(function(d){return d.engaged||0;});
-  var ke=ga.map(function(d){return d.key_events||0;});
+  var usr=ga.map(function(d){return d.total_users||0;});
+  var newu=ga.map(function(d){return d.new_users||0;});
   function tail(a,k){return a.slice(Math.max(0,a.length-k));}
   function prevWin(a,k){var end=a.length-k;return a.slice(Math.max(0,end-k),end);}
   var s30=_sum(tail(sess,30)), s30p=_sum(prevWin(sess,30));
   var s7=_sum(tail(sess,7)), s7p=_sum(prevWin(sess,7));
   var mom=growthPct(s30,s30p), wow=growthPct(s7,s7p);
-  var e30=_sum(tail(eng,30)), ke30=_sum(tail(ke,30));
+  var u30=_sum(tail(usr,30)), u30p=_sum(prevWin(usr,30)), uMom=growthPct(u30,u30p);
+  var nu30=_sum(tail(newu,30));
+  var e30=_sum(tail(eng,30));
   var engRate=s30>0?(e30/s30*100):null;
   var sl=slopePerDay(sess);
   var r_se=pearson(sess,eng);
-  var ct=clarityTraffic(S.sources.clarity);
+  var engBench=(IB.engRate.lo+IB.engRate.hi)/2;
 
-  /* ---------- HEADLINE: wins & fails ---------- */
+  /* ---------- HEADLINE: wins & fails (GA4 only, so nothing on this strip contradicts) ---------- */
   function vc(title,value,sub,good){return kpi(title,value,sub,null,good===true?mix(sp(),{ok:true}):good===false?mix(sp(),{warn:true}):sp());}
   var cards='';
   cards+=vc("TRAFFIC TREND",pctTxt(mom),"sessions · last 30d vs prior 30d",mom==null?null:mom>=0);
+  cards+=vc("VISITORS (30D)",num(u30),"GA4 unique visitors · "+pctTxt(uMom)+" vs prior 30d",uMom==null?null:uMom>=0);
+  cards+=vc("NEW VISITORS (30D)",num(nu30),"GA4 first-time visitors",null);
   cards+=vc("ENGAGEMENT",engRate!=null?engRate.toFixed(0)+"%":"—","vs "+IB.engRate.lo+"–"+IB.engRate.hi+"% benchmark",engRate==null?null:engRate>=IB.engRate.lo);
-  cards+=vc("WEBSITE VISITORS",ct?num(INCLBOTS?ct.total:ct.real):"—",ct?(INCLBOTS?("Clarity tracked · incl. "+ct.bot+" bots"):("Clarity tracked · "+ct.bot+" bots removed")):"Clarity tracked",null);
-  cards+=vc("VISITOR → LEAD",ke30>0&&s30>0?(ke30/s30*100).toFixed(1)+"%":"blocked",ke30>0?"vs "+IB.v2l.lo+"–"+IB.v2l.hi+"% benchmark":"no key events set in GA4",ke30>0?null:false);
-  var srcNow=(BM&&BM.marketing_sourced_pipeline_pct&&BM.marketing_sourced_pipeline_pct.hdi_current!=null)?BM.marketing_sourced_pipeline_pct.hdi_current:0;
-  cards+=vc("SOURCED PIPELINE",srcNow+"%","vs "+IB.srcPipe.lo+"–"+IB.srcPipe.hi+"% · attribution gap",srcNow>=IB.srcPipe.lo);
 
   var h='<div class="card" style="margin-bottom:12px"><div class="ch"><h3>What\'s working, what\'s not</h3>'+
-    '<span class="note">GA4 '+esc(span)+' · '+n+' days</span></div><div class="cb">'+
+    '<span class="note">GA4 traffic · '+esc(span)+' · '+n+' days</span>'+srcTag(S.sources.ga4,"GA4")+'</div><div class="cb">'+
     '<div class="kpis">'+cards+'</div>'+
-    '<div class="foot">Green = at or above the cited benchmark; red = below, blocked, or a measurement gap. Benchmarks are external references, not approved targets. Detail and sources below.</div>'+
+    '<div class="foot">Every figure on this strip is GA4 website traffic. Green = at or above the cited benchmark, red = below. Benchmarks are external references, not approved targets.</div>'+
+    '</div></div>';
+
+  /* ---------- CONTEXT: how GA4 and Clarity relate (they measure different things) ---------- */
+  h+='<div class="card" style="margin-bottom:12px"><div class="ch"><h3>How to read GA4 vs Clarity</h3><span class="note">different tools, not conflicting numbers</span></div><div class="cb">'+
+    '<p style="margin:0"><b>GA4</b> measures <b>all website traffic</b> — every session and visitor, with Google\'s own bot filtering — so its counts run in the thousands. '+
+    '<b>Clarity</b> records a <b>behaviour sample</b> (session replays and heatmaps) on a fraction of visits, and separately flags bots, so its counts run in the dozens. '+
+    'They are not meant to match: use <b>GA4 for how much traffic</b>, and <b>Clarity for how visitors behave and how many are bots</b> (Website tab).</p>'+
     '</div></div>';
 
   /* ---------- DETAIL: traffic trend ---------- */
   var t=trend(ga.map(function(d){return {label:(d.date||"").slice(5),v:d.sessions};}));
   h+='<div class="card" style="margin-bottom:12px"><div class="ch"><h3>Traffic trend</h3>'+
-    '<span class="note">GA4 sessions, full stored history</span>'+srcTag(S.sources.ga4,"GA4")+'</div><div class="cb">'+
+    '<span class="note">GA4 sessions per day · full stored history · grey band = usual range</span>'+srcTag(S.sources.ga4,"GA4")+'</div><div class="cb">'+
     (t?t.svg:building("GA4",n))+
     '<div class="kpis" style="margin-top:12px">'+
       kpi("MONTH OVER MONTH",pctTxt(mom),num(s30)+" vs "+num(s30p)+" sessions",null,mix(sp(),mom!=null&&mom<0?{warn:true}:{}))+
       kpi("WEEK OVER WEEK",pctTxt(wow),num(s7)+" vs "+num(s7p)+" sessions",null,mix(sp(),wow!=null&&wow<0?{warn:true}:{}))+
       kpi("TREND",sl==null?"—":(sl>=0?"↑ ":"↓ ")+Math.abs(sl).toFixed(1)+"/day","least-squares slope over "+n+" days",null,sp())+
-      kpi("ENGAGED RATE",engRate!=null?engRate.toFixed(0)+"%":"—","benchmark "+IB.engRate.lo+"–"+IB.engRate.hi+"%",null,mix(sp(),engRate!=null&&engRate<IB.engRate.lo?{warn:true}:{ok:true}))+
+    '</div></div></div>';
+
+  /* ---------- DETAIL: engagement trend vs benchmark (visual trending context) ---------- */
+  var engSeries=ga.map(function(d){return {label:(d.date||"").slice(5),v:(d.sessions>0?Math.round(d.engaged/d.sessions*100):null)};});
+  var te=trend(engSeries,{benchmark:engBench,benchmarkLabel:"benchmark",fmt:function(v){return v+"%";}});
+  h+='<div class="card" style="margin-bottom:12px"><div class="ch"><h3>Engagement trend vs benchmark</h3>'+
+    '<span class="note">GA4 engaged-session rate per day · dashed line = industry benchmark</span>'+srcTag(S.sources.ga4,"GA4")+'</div><div class="cb">'+
+    (te?te.svg:building("GA4",n))+
+    '<div class="kpis" style="margin-top:12px">'+
+      kpi("ENGAGED RATE (30D)",engRate!=null?engRate.toFixed(0)+"%":"—","benchmark "+IB.engRate.lo+"–"+IB.engRate.hi+"%",null,mix(sp(),engRate!=null&&engRate<IB.engRate.lo?{warn:true}:{ok:true}))+
     '</div>'+
-    '<div class="foot">Benchmark: '+esc(IB.engRate.src)+'.</div>'+
+    '<div class="foot">Sits '+(engRate!=null&&engRate<IB.engRate.lo?"below":"at or above")+' the industry benchmark. Source: '+esc(IB.engRate.src)+'.</div>'+
     '</div></div>';
 
   /* ---------- DETAIL: correlation ---------- */
@@ -1025,19 +1042,15 @@ function insights(){
     h+='<div class="card" style="margin-bottom:12px"><div class="ch"><h3>Traffic quality over time · Clarity</h3>'+
       '<span class="note">our stored history · '+cdays.length+' day'+(cdays.length===1?"":"s")+'</span>'+srcTag(S.sources.clarity,"Clarity")+'</div><div class="cb">'+
       '<table><thead><tr><th>Date</th><th>Human</th><th>Bot</th><th>Total</th></tr></thead><tbody>'+rowsH+'</tbody></table>'+
-      '<div class="foot ok">Clarity only serves the last 72 hours, so this history exists only because the pipeline stores each day into our own database. It cannot be backfilled before the first stored day — it grows forward by one point daily. Benchmark: '+esc(IB.botShare.src)+'.</div>'+
+      '<div class="foot ok">These are Clarity\'s behaviour-sample counts (dozens), not total site traffic — see "How to read GA4 vs Clarity" above. Clarity only serves the last 72 hours, so this history exists only because the pipeline stores each day into our own database. It cannot be backfilled before the first stored day — it grows forward one point per day.</div>'+
       '</div></div>';
   }
 
-  /* ---------- WATCH LIST: blocked / structural ---------- */
-  var watch=[];
-  if(!(ke30>0))watch.push("<b>Visitor-to-lead is unmeasurable</b> — GA4 has zero key events configured, so the conversion rate cannot be computed (a 0% would be a false claim that nobody converts). Configuring form-submit key events in GA4 unblocks it.");
-  if(srcNow<IB.srcPipe.lo)watch.push("<b>Marketing-sourced pipeline reads "+srcNow+"%</b> vs a 30–60% norm — deals carry no campaign association in HubSpot, so this is an attribution gap, not necessarily an execution one.");
-  if(ct&&ct.bot>0)watch.push("<b>"+ct.bot+" of "+ct.total+" tracked visitors were bots</b>, concentrated in a single channel/country bucket — quote the human number, and use the header \"Include bots\" toggle to switch traffic between with and without bots.");
-  if(watch.length){
-    h+='<div class="card"><div class="ch"><h3>Watch list</h3><span class="note">gaps that limit interpretation</span></div><div class="cb"><ul style="margin:0;padding-left:18px">'+
-      watch.map(function(w){return '<li style="margin-bottom:6px">'+w+'</li>';}).join("")+'</ul></div></div>';
-  }
+  /* ---------- NOT YET MEASURED (roadmap, not failures) ---------- */
+  h+='<div class="card"><div class="ch"><h3>Not yet measured</h3><span class="note">data we are not collecting yet — by design</span></div><div class="cb"><ul style="margin:0;padding-left:18px">'+
+    '<li style="margin-bottom:6px"><b>Visitor-to-lead conversion</b> — needs form-submit key events configured in GA4. Until then there is no conversion denominator, so we show nothing rather than a misleading number.</li>'+
+    '<li><b>Marketing-sourced pipeline</b> — needs campaign attribution on deals in HubSpot. Until deals carry a campaign association, sourced share is not computable.</li>'+
+    '</ul><div class="foot">These are planned data-collection steps, not performance results — they will populate once the upstream setup is in place.</div></div></div>';
 
   $("p-ins").innerHTML=h;
 }

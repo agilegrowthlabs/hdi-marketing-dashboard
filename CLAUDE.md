@@ -109,10 +109,11 @@ Rules specific to this panel:
 
 ## DO NOT REMOVE — THE INSIGHTS TAB + BOT-FILTER TOGGLE (load-bearing)
 Second tab, "Insights" (`data-t="ins"`, pane `#p-ins`), rendered by `insights()`. It is the
-interpretation layer: a "What's working, what's not" verdict strip (traffic trend, engagement
-vs benchmark, website-visitor count, visitor→lead, sourced pipeline), then GA4 trend diagnostics (MoM/WoW/
-slope/engaged-rate), a correlation section, the Clarity human-vs-bot stored-history table, and
-a watch list. Preserve it. Restyle freely, but keep:
+interpretation layer: an all-GA4 "What's working, what's not" verdict strip (traffic trend,
+visitors, new visitors, engagement vs benchmark — nothing from Clarity on this strip, so its
+counts never appear to contradict GA4's), a "How to read GA4 vs Clarity" context box, GA4 trend
+diagnostics (MoM/WoW/slope), an engagement-vs-benchmark trend chart, a correlation section, the
+Clarity human-vs-bot stored-history table, and a "Not yet measured" roadmap note. Preserve it. Restyle freely, but keep:
 - `insights()` and the stat helpers `_sum`/`_mean`/`pearson`/`slopePerDay`/`growthPct`/`pctTxt`,
   and the `IB` researched-benchmark constants (each shown with its source in-UI).
 - The header toggle `#botTog` (INCLBOTS) and its handler.
@@ -201,8 +202,11 @@ Must be 200. Then open `https://hdi-marketing-dashboard.netlify.app/?v=NNN` and 
   ~43%). Confirm the numbers match `S.sources.clarity.data.metrics.traffic` and are NOT
   hardcoded; confirm the card is labeled by Clarity's own window (not the date range) and is
   not attached to the GA4 numbers.
-- Insights tab: the "What's working, what's not" strip renders live verdicts (traffic trend,
-  engagement vs 52–56%, website-visitor count (plain count, not a %), visitor→lead, sourced pipeline); the Traffic-trend chart +
+- Insights tab: the "What's working, what's not" strip is ALL GA4 (traffic trend, visitors,
+  new visitors, engagement vs 52–56%) — no Clarity figure on it, so nothing appears to
+  contradict GA4. A "How to read GA4 vs Clarity" box explains the two tools. Metrics we don't
+  collect yet (visitor→lead, sourced pipeline) live in a "Not yet measured" note, NOT as red
+  verdicts. There are two trend charts (traffic, and engagement-vs-benchmark); the Traffic-trend chart +
   MoM/WoW/slope/engaged-rate compute from GA4 history; the Correlation section says "not
   causation"; the Clarity human-vs-bot table shows the stored days. Confirm nothing is
   hardcoded (numbers move as data flows) and it does NOT change when you switch the date range.
