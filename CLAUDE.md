@@ -119,6 +119,18 @@ Rules specific to this panel:
 - Never hardcode the counts. If Clarity returns no bot field, the card must disappear, not
   show a stale/zero number.
 
+## DO NOT REMOVE — THE BLOG TAB (load-bearing)
+Tab "Blog" (`data-t="blog"`, pane `#p-blog`), rendered by `blog()`, between Website and LinkedIn.
+Verona's dedicated thought-leadership view (Aug 17: "blog should have its own tab… top blog posts
+because we need to see which posts are gaining traction"). It reads `top_pages` (from `HIST.ga4_agg`
+when windowed, else the snapshot) and filters to paths starting `/blog/` — so it POPULATES
+AUTOMATICALLY once blog URLs move to `hdi.com/blog/[title]` (decided Aug 17; Meg + Adrian ship the
+permalink change + redirects). Until then: it shows the `/resources/` hub page views, POSTS TRACKED
+(count of `/blog/` pages, 0 today), an honest empty state naming the dependency, and — when present —
+an "Other content pages" interim proxy (top pages minus the main-nav `SITE` list). Keep the `/blog/`
+filter and the auto-populate wiring; do not hardcode post lists. Driven by the date filter via
+`winDesc()`/`HIST.ga4_agg`. `blog()` is called in `render()`.
+
 ## DO NOT REMOVE — THE INSIGHTS TAB + BOT-FILTER TOGGLE (load-bearing)
 Second tab, "Insights" (`data-t="ins"`, pane `#p-ins`), rendered by `insights()`. It is the
 interpretation layer, modelled on Henry's reference images (comparison → trend → benchmark

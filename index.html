@@ -194,6 +194,7 @@ svg.cv{width:100%;height:auto;display:block;overflow:visible}
   <button role="tab" data-t="camp" aria-selected="false">Campaigns</button>
   <button role="tab" data-t="pipe" aria-selected="false">Pipeline</button>
   <button role="tab" data-t="web" aria-selected="false">Website</button>
+  <button role="tab" data-t="blog" aria-selected="false">Blog</button>
   <button role="tab" data-t="li" aria-selected="false">LinkedIn</button>
   <button role="tab" data-t="bm" aria-selected="false">Benchmarks</button>
 </div>
@@ -203,6 +204,7 @@ svg.cv{width:100%;height:auto;display:block;overflow:visible}
 <div class="pane" id="p-camp"></div>
 <div class="pane" id="p-pipe"></div>
 <div class="pane" id="p-web"></div>
+<div class="pane" id="p-blog"></div>
 <div class="pane" id="p-li"></div>
 <div class="pane" id="p-bm"></div>
 
@@ -820,6 +822,64 @@ function website(){
   $("p-web").innerHTML=h;
 }
 
+/* ================= BLOG ================= *//* Dedicated thought-leadership view (Verona Aug 17: "blog should have its own tab"...
+   "top blog posts because we need to see which posts are gaining traction"). Blog posts
+   currently live at hdi.com/[title] with no distinguishing prefix, so GA4 can't separate a
+   post from any other page — the team decided Aug 17 to move to hdi.com/blog/[title] (Meg +
+   Adrian, with redirects). This tab filters top_pages to /blog/ paths, so it POPULATES
+   AUTOMATICALLY once those redirects ship — no rework. Until then it shows the blocker plus
+   the /resources/ hub metric and any non-nav content pages as an interim proxy. */
+function blog(){
+  var g=S.sources.ga4,h='';
+  var agg=(!PV&&HIST.ga4_agg)||null;
+  var tp=agg?agg.top_pages:((!PV&&g.data&&g.data.top_pages)||[]);
+  if(PV){var p=PREVIEW();tp=(p.ga4&&p.ga4.top_pages)||tp;}
+  function norm(x){return (x.path||x.page||"").replace(/[?#].*$/,"");}
+  /* main-site nav pages that are NOT blog posts — excluded from the interim "content" proxy */
+  var SITE=["/","/careers/","/why-hdi/","/services/","/health-systems/","/about-us/","/contact/","/resources/","/payers/","/solutions/","/team/","/leadership/","/privacy/","/privacy-policy/","/terms/","/test-page/","/why-hdi","/services","/careers","/about-us","/contact"];
+  var posts=tp.filter(function(x){return norm(x).indexOf("/blog/")===0;}).sort(function(a,b){return (b.views||0)-(a.views||0);});
+  var hub=tp.filter(function(x){return norm(x)==="/resources/"||norm(x)==="/resources";})[0]||null;
+  var other=tp.filter(function(x){var pth=norm(x);return SITE.indexOf(pth)===-1 && pth.indexOf("/blog/")!==0;}).sort(function(a,b){return (b.views||0)-(a.views||0);});
+  var span=(!PV)?winDesc():"sample window";
+  var g_ok=(g&&(mode(g)==="live"))||PV||(tp&&tp.length);
+
+  h+='<div class="card"><div class="cb">'+
+    '<div style="font-family:var(--m);font-size:11px;letter-spacing:.08em;color:var(--teal);text-transform:uppercase">Blog · thought leadership</div>'+
+    '<h3 style="font-size:22px;letter-spacing:-.02em;margin:6px 0 4px;color:var(--ink)">Blog performance</h3>'+
+    '<p class="sub" style="margin:0">Which posts are gaining traction — the leading signal for thought leadership. '+esc(span)+', by Google Analytics page views.</p>'+
+    '<div class="kpis" style="margin-top:14px">'+
+      kpi("BLOG HUB VIEWS",hub?num(hub.views):"—","/resources/ — the page that lists every post",null,mix(sp(),{hi:true}))+
+      kpi("POSTS TRACKED",String(posts.length),"individual /blog/ posts with traffic",null,sp())+
+      kpi("TOP POST",posts.length?esc(norm(posts[0]).replace(/^\/blog\//,"").replace(/\/$/,"")):"—",posts.length?num(posts[0].views)+" views":"waiting on /blog/ URLs",null,sp())+
+    '</div>'+
+    srcTag(g,"GA4")+'</div></div>';
+
+  if(posts.length){
+    h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Top blog posts</h3><span class="note">'+esc(span)+' · by page views</span>'+srcTag(g,"GA4")+'</div><div class="cb">'+
+      bars(posts.slice(0,12).map(function(x,i){return [norm(x).replace(/^\/blog\//,"").replace(/\/$/,"")||norm(x),x.views,i===0?"var(--lime)":"var(--sage)"];}))+
+      '<div class="foot">Ranked by views over '+esc(span)+'. These are the posts earning the most attention — the ones to double down on.</div>'+
+      '</div></div>';
+  } else {
+    h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Top blog posts</h3><span class="note">by page views</span>'+srcTag(g,"GA4")+'</div><div class="cb">'+
+      empty("Per-post tracking turns on once blog URLs move to /blog/[title]",
+        "Right now blog posts live at <code>hdi.com/[title]</code> with no <code>/blog/</code> prefix, so Google Analytics can’t tell an individual post apart from any other page. <b>Decided Aug 17 (team standup):</b> switch the blog permalink structure to <code>hdi.com/blog/[title]</code>. <b>Meg is setting that up with Adrian</b>, including redirects for the posts already live. The moment those redirects ship, this list fills in on its own — every <code>/blog/</code> page ranked by traffic, no further build needed.")+
+      '</div></div>';
+  }
+
+  if(other.length){
+    h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Other content pages</h3><span class="note">'+esc(span)+' · pages outside the main site nav · interim proxy</span>'+srcTag(g,"GA4")+'</div><div class="cb">'+
+      bars(other.slice(0,10).map(function(x,i){return [norm(x),x.views,i===0?"var(--lime)":"var(--sage)"];}))+
+      '<div class="foot">Until posts move to <code>/blog/</code>, this is the closest available signal — top pages that aren’t part of the main navigation. Some are likely blog posts, some may be campaign or landing pages.</div>'+
+      '</div></div>';
+  }
+
+  h+='<div class="card" style="margin-top:12px;border-color:#BFDBD6;background:var(--tealb)"><div class="cb" style="color:var(--teal)">'+
+    '<b>What unlocks the full blog view:</b> Meg + Adrian ship the <code>hdi.com/blog/[title]</code> permalink change and redirects for existing posts. This tab is already wired to read <code>/blog/</code> pages, so it activates automatically the moment that lands — nothing more to build here.'+
+    '</div></div>';
+
+  $("p-blog").innerHTML=h;
+}
+
 function building(src,n){
   return '<div class="empty" style="padding:18px"><b>Building history</b><p>'+esc(src)+
     ' has '+n+' day'+(n===1?'':'s')+' stored so far — not enough for a trend line. '+
@@ -1184,7 +1244,7 @@ function insights(){
   $("p-ins").innerHTML=h;
 }
 
-function render(){shell();board();insights();campaigns();pipeline();website();linkedin();benchmarks();}
+function render(){shell();board();insights();campaigns();pipeline();website();blog();linkedin();benchmarks();}
 
 /* History shape (verified live):
    { source, days: <integer request param>, rows: [ { date, pulled_at, data: {...} } ] }
