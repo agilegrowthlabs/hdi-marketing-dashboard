@@ -1049,7 +1049,7 @@ function insights(){
     (t?t.svg:building("GA4",n))+
     '<div class="kpis" style="margin-top:12px">'+
       kpi("VS PRIOR PERIOD",pctTxt(mom),mom!=null?(num(s30)+" vs "+num(s30p)+" sessions"):"no prior period in range",null,mix(sp(),mom==null?{}:(mom<0?{warn:true}:{ok:true})))+
-      kpi("TREND",sl==null?"—":(sl>=0?"↑ ":"↓ ")+Math.abs(sl).toFixed(1)+"/day","least-squares slope over "+n+" days in range",null,sp())+
+      kpi("AVG CHANGE / DAY",sl==null?"—":(sl>=0?"↑ ":"↓ ")+Math.abs(sl).toFixed(1),"sessions gained or lost per day, on average, over the range shown",null,sp())+
     '</div></div></div>';
 
   /* ---------- HDI vs INDUSTRY BENCHMARK (ahead / in line / behind) ---------- */
@@ -1086,7 +1086,7 @@ function insights(){
   if(r_se!=null){
     var strength=Math.abs(r_se)>=0.7?"strong":Math.abs(r_se)>=0.4?"moderate":"weak";
     h+='<div class="card" style="margin-bottom:12px"><div class="ch"><h3>Correlation &amp; causation</h3><span class="note">what we can and can\'t claim</span></div><div class="cb">'+
-      '<p style="margin:0 0 8px">Daily sessions and engaged sessions correlate <b>'+strength+'ly</b> (r = '+r_se.toFixed(2)+', n = '+n+') — expected, since engaged is a subset of sessions.</p>'+
+      '<p style="margin:0 0 8px">Daily sessions and engaged sessions <b>'+(strength==="strong"?"move together very closely":strength==="moderate"?"move together fairly closely":"track only loosely")+'</b> — a correlation of '+r_se.toFixed(2)+' on a 0-to-1 scale, measured across '+n+' days. That is expected, since engaged sessions are a subset of sessions.</p>'+
       '<p style="margin:0 0 8px">Engagement rate rose '+(engRateP!=null?Math.round(engRateP)+"% → "+(engRate!=null?engRate.toFixed(0)+"%":"—"):"")+' and engaged time '+(avgEngP!=null?Math.round(avgEngP)+"s → "+(avgEng!=null?Math.round(avgEng)+"s":"—"):"")+' over the same window traffic grew '+pctTxt(mom)+'. Deeper-engagement metrics rising <i>alongside</i> volume is a good sign the growth is real audience, not bots or a tracking artifact.</p>'+
       '<div class="foot">That is a <b>hypothesis, not proven causation</b> — there is no campaign or source-change record tied to these dates to point to. We flag likely drivers; we do not assert them from observational data.</div>'+
       '</div></div>';
