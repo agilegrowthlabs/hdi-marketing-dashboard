@@ -141,10 +141,19 @@ Preserve it. Restyle freely, but keep:
   rate + sessions per channel) — used by BOTH Insights and the Website tab so they compute
   identically. `benchPos()` returns the AHEAD/IN LINE/BEHIND label. Don't fork these per-tab.
 - The metric CARDS (both tabs) lead with the period-over-period % change ("↑ +22% vs prior N
-  days") and demote the industry benchmark to a secondary "industry reference …" note; they are
-  coloured by direction of change, not by benchmark position, and never use the word "behind"
-  (Verona A2, Aug 17). The AHEAD/IN LINE/BEHIND wording survives ONLY in the dedicated "HDI vs
-  industry benchmark" table, where it is labelled.
+  days"); the secondary note gives the prior-period value FIRST ("was 32% · industry reference
+  52–56%") because Verona said the prior period is the more important number, benchmark second.
+  Cards are coloured by direction of change, not benchmark position.
+- The word "behind" is BANNED everywhere user-facing (Verona Aug 17: "I don't get behind").
+  `benchPos()` returns "ahead" / "in line" / "below" / "at benchmark" — never "behind". The
+  "HDI vs industry benchmark" table POSITION column and the leadership-takeaway box both use
+  "below" / "below the benchmark". If you touch benchPos, keep "below".
+- Channel bars (both tabs) show engaged rate as the bar, coloured lime when the channel clears
+  the benchmark and sage when below — there is NO black benchmark tick mark on the bars (Verona
+  Aug 17: "these black marks need to go"). Do not re-add the per-bar tick (`i[4]` in bars()).
+- The Insights engagement-trend chart is "Engagement trend over time" with only a dashed
+  regression trend line — no on-chart benchmark reference line (removed per Verona A4). Don't
+  re-add a benchmark line or rename it "vs benchmark".
 - `trend(series, opts)` supports `opts.trendline` (dashed regression) and `opts.benchmark`
   (dashed reference line). EVERY line chart carries `trendline:true` (Verona A3). The on-chart
   `benchmark` reference line was REMOVED from the engagement-trend chart (Verona A4: an
