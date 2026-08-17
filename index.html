@@ -324,6 +324,16 @@ function trend(series,opts){
   var d='',started=false;
   series.forEach(function(p,i){if(p.v==null)return;d+=(started?"L":"M")+px(i)+" "+py(p.v);started=true;});
   s+='<path class="ln" d="'+d+'"/>';
+  if(opts.trendline){ /* dashed linear-regression line showing overall direction */
+    var xis=[],yis=[];
+    series.forEach(function(p,i){if(p.v!=null){xis.push(i);yis.push(p.v);}});
+    if(xis.length>=2){
+      var mxx=_mean(xis),myy=_mean(yis),nu=0,de=0;
+      for(var k=0;k<xis.length;k++){nu+=(xis[k]-mxx)*(yis[k]-myy);de+=(xis[k]-mxx)*(xis[k]-mxx);}
+      var bb=de?nu/de:0, aa=myy-bb*mxx, x0=xis[0], x1=xis[xis.length-1];
+      s+='<line x1="'+px(x0)+'" y1="'+py(aa+bb*x0)+'" x2="'+px(x1)+'" y2="'+py(aa+bb*x1)+'" stroke="var(--teal)" stroke-width="2" stroke-dasharray="6 4" opacity="0.85"/>';
+    }
+  }
   var last=(function(){for(var i=series.length-1;i>=0;i--)if(series[i].v!=null)return i;return -1;})();
   if(last>=0){
     s+='<circle class="dt" cx="'+px(last)+'" cy="'+py(series[last].v)+'" r="4"/>';
@@ -964,73 +974,106 @@ function insights(){
   var sess=ga.map(function(d){return d.sessions||0;});
   var eng=ga.map(function(d){return d.engaged||0;});
   var usr=ga.map(function(d){return d.total_users||0;});
-  var newu=ga.map(function(d){return d.new_users||0;});
+  var engs=ga.map(function(d){return d.engagement_seconds||0;});
   function tail(a,k){return a.slice(Math.max(0,a.length-k));}
   function prevWin(a,k){var end=a.length-k;return a.slice(Math.max(0,end-k),end);}
-  var s30=_sum(tail(sess,30)), s30p=_sum(prevWin(sess,30));
-  var s7=_sum(tail(sess,7)), s7p=_sum(prevWin(sess,7));
-  var mom=growthPct(s30,s30p), wow=growthPct(s7,s7p);
+  var s30=_sum(tail(sess,30)), s30p=_sum(prevWin(sess,30)), mom=growthPct(s30,s30p);
+  var s7=_sum(tail(sess,7)), s7p=_sum(prevWin(sess,7)), wow=growthPct(s7,s7p);
   var u30=_sum(tail(usr,30)), u30p=_sum(prevWin(usr,30)), uMom=growthPct(u30,u30p);
-  var nu30=_sum(tail(newu,30));
-  var e30=_sum(tail(eng,30));
-  var engRate=s30>0?(e30/s30*100):null;
-  var sl=slopePerDay(sess);
-  var r_se=pearson(sess,eng);
-  var engBench=(IB.engRate.lo+IB.engRate.hi)/2;
+  var e30=_sum(tail(eng,30)), e30p=_sum(prevWin(eng,30));
+  var engRate=s30>0?(e30/s30*100):null, engRateP=s30p>0?(e30p/s30p*100):null;
+  var es30=_sum(tail(engs,30)), es30p=_sum(prevWin(engs,30));
+  var avgEng=s30>0?(es30/s30):null, avgEngP=s30p>0?(es30p/s30p):null;
+  var sl=slopePerDay(sess), r_se=pearson(sess,eng);
+  var engBench=(IB.engRate.lo+IB.engRate.hi)/2, sessBench=158; /* Databox median session ~2m38s */
+  var arrow=function(v){return v==null?"":(v>=0?"↑ ":"↓ ");};
+  function posLabel(v,lo,hi){if(v==null)return {t:"—",warn:false};if(v>=lo&&(hi==null||v<=hi))return {t:hi==null?"at benchmark":"in line",warn:false};if(v>(hi==null?lo:hi))return {t:"ahead",warn:false};return {t:"behind",warn:true};}
 
-  /* ---------- HEADLINE: wins & fails (GA4 only, so nothing on this strip contradicts) ---------- */
-  function vc(title,value,sub,good){return kpi(title,value,sub,null,good===true?mix(sp(),{ok:true}):good===false?mix(sp(),{warn:true}):sp());}
-  var cards='';
-  cards+=vc("TRAFFIC TREND",pctTxt(mom),"sessions · last 30d vs prior 30d",mom==null?null:mom>=0);
-  cards+=vc("VISITORS (30D)",num(u30),"GA4 unique visitors · "+pctTxt(uMom)+" vs prior 30d",uMom==null?null:uMom>=0);
-  cards+=vc("NEW VISITORS (30D)",num(nu30),"GA4 first-time visitors",null);
-  cards+=vc("ENGAGEMENT",engRate!=null?engRate.toFixed(0)+"%":"—","vs "+IB.engRate.lo+"–"+IB.engRate.hi+"% benchmark",engRate==null?null:engRate>=IB.engRate.lo);
+  /* ---------- channels: engagement rate by channel, last 30d (deduped by date+channel) ---------- */
+  var last30set={}; tail(ga,30).forEach(function(d){last30set[d.date]=1;});
+  var cbucket={};
+  (RAW.ga4.rows||[]).forEach(function(r){var dd=r.data||{};if(dd.mode==="stub")return;
+    (dd.channels||[]).forEach(function(c){if(!c||!c.date||!last30set[c.date])return;
+      var key=c.date+"|"+c.channel,cur=cbucket[key];
+      if(!cur||newer(r.pulled_at,cur.pulled_at))cbucket[key]={channel:c.channel,sessions:c.sessions||0,engaged:c.engaged||0,pulled_at:r.pulled_at};});});
+  var chagg={};
+  Object.keys(cbucket).forEach(function(k){var c=cbucket[k];var a=chagg[c.channel]||(chagg[c.channel]={s:0,e:0});a.s+=c.sessions;a.e+=c.engaged;});
+  var chArr=Object.keys(chagg).map(function(ch){var s=chagg[ch].s;return {channel:ch,sessions:s,er:s?Math.round(chagg[ch].e/s*100):0};}).sort(function(a,b){return b.sessions-a.sessions;});
+  var topCh=chArr[0]||null;
+  var goodCh=chArr.filter(function(c){return c.er>=IB.engRate.lo&&c.sessions>=20;});
+  var organic=chArr.filter(function(c){return /Organic Search/i.test(c.channel);})[0]||null;
 
-  var h='<div class="card" style="margin-bottom:12px"><div class="ch"><h3>What\'s working, what\'s not</h3>'+
-    '<span class="note">GA4 traffic · '+esc(span)+' · '+n+' days</span>'+srcTag(S.sources.ga4,"GA4")+'</div><div class="cb">'+
-    '<div class="kpis">'+cards+'</div>'+
-    '<div class="foot">Every figure on this strip is GA4 website traffic. Green = at or above the cited benchmark, red = below. Benchmarks are external references, not approved targets.</div>'+
-    '</div></div>';
+  /* ---------- NARRATIVE HEADLINE + comparison KPI cards ---------- */
+  var epos=posLabel(engRate,IB.engRate.lo,IB.engRate.hi), tpos=posLabel(avgEng,sessBench,null);
+  var h='<div class="card" style="margin-bottom:12px"><div class="cb">'+
+    '<h3 style="font-size:22px;letter-spacing:-.02em;margin:0 0 4px;color:var(--ink)">Traffic is compounding — engagement is the gap.</h3>'+
+    '<p class="sub" style="margin:0">Sessions '+pctTxt(mom)+' and visitors '+pctTxt(uMom)+' month over month, but engagement runs below the industry benchmark. The opportunity is quality, not volume.</p>'+
+    '<div class="kpis" style="margin-top:14px">'+
+      kpi("SESSIONS (30D)",num(s30),arrow(mom)+pctTxt(mom)+" vs prior 30d","was "+num(s30p),mix(sp(),mom>=0?{ok:true}:{warn:true}))+
+      kpi("VISITORS (30D)",num(u30),arrow(uMom)+pctTxt(uMom)+" vs prior 30d","was "+num(u30p),mix(sp(),{hi:true}))+
+      kpi("ENGAGEMENT RATE",engRate!=null?engRate.toFixed(0)+"%":"—","vs "+IB.engRate.lo+"–"+IB.engRate.hi+"% · "+epos.t,"was "+(engRateP!=null?Math.round(engRateP)+"%":"—")+" · 30d ago",mix(sp(),epos.warn?{warn:true}:{ok:true}))+
+      kpi("AVG ENGAGED TIME",avgEng!=null?Math.round(avgEng)+"s":"—","vs ~"+sessBench+"s · "+tpos.t,"was "+(avgEngP!=null?Math.round(avgEngP)+"s":"—")+" · 30d ago",mix(sp(),tpos.warn?{warn:true}:{ok:true}))+
+    '</div>'+
+    '<div class="foot">GA4 website traffic, last 30 days vs the prior 30. Benchmarks are external references, not approved targets — at or above is green, below is red.</div>'+
+    srcTag(S.sources.ga4,"GA4")+'</div></div>';
 
-  /* ---------- CONTEXT: how GA4 and Clarity relate (they measure different things) ---------- */
-  h+='<div class="card" style="margin-bottom:12px"><div class="ch"><h3>How to read GA4 vs Clarity</h3><span class="note">different tools, not conflicting numbers</span></div><div class="cb">'+
-    '<p style="margin:0"><b>GA4</b> measures <b>all website traffic</b> — every session and visitor, with Google\'s own bot filtering — so its counts run in the thousands. '+
-    '<b>Clarity</b> records a <b>behaviour sample</b> (session replays and heatmaps) on a fraction of visits, and separately flags bots, so its counts run in the dozens. '+
-    'They are not meant to match: use <b>GA4 for how much traffic</b>, and <b>Clarity for how visitors behave and how many are bots</b> (Website tab).</p>'+
-    '</div></div>';
-
-  /* ---------- DETAIL: traffic trend ---------- */
-  var t=trend(ga.map(function(d){return {label:(d.date||"").slice(5),v:d.sessions};}));
+  /* ---------- TRAFFIC TREND (with dashed trend line) ---------- */
+  var t=trend(ga.map(function(d){return {label:(d.date||"").slice(5),v:d.sessions};}),{trendline:true});
   h+='<div class="card" style="margin-bottom:12px"><div class="ch"><h3>Traffic trend</h3>'+
-    '<span class="note">GA4 sessions per day · full stored history · grey band = usual range</span>'+srcTag(S.sources.ga4,"GA4")+'</div><div class="cb">'+
+    '<span class="note">GA4 sessions per day · dashed = overall trend · grey band = usual range</span>'+srcTag(S.sources.ga4,"GA4")+'</div><div class="cb">'+
     (t?t.svg:building("GA4",n))+
     '<div class="kpis" style="margin-top:12px">'+
-      kpi("MONTH OVER MONTH",pctTxt(mom),num(s30)+" vs "+num(s30p)+" sessions",null,mix(sp(),mom!=null&&mom<0?{warn:true}:{}))+
+      kpi("MONTH OVER MONTH",pctTxt(mom),num(s30)+" vs "+num(s30p)+" sessions",null,mix(sp(),mom!=null&&mom<0?{warn:true}:{ok:true}))+
       kpi("WEEK OVER WEEK",pctTxt(wow),num(s7)+" vs "+num(s7p)+" sessions",null,mix(sp(),wow!=null&&wow<0?{warn:true}:{}))+
       kpi("TREND",sl==null?"—":(sl>=0?"↑ ":"↓ ")+Math.abs(sl).toFixed(1)+"/day","least-squares slope over "+n+" days",null,sp())+
     '</div></div></div>';
 
-  /* ---------- DETAIL: engagement trend vs benchmark (visual trending context) ---------- */
-  var engSeries=ga.map(function(d){return {label:(d.date||"").slice(5),v:(d.sessions>0?Math.round(d.engaged/d.sessions*100):null)};});
-  var te=trend(engSeries,{benchmark:engBench,benchmarkLabel:"benchmark",fmt:function(v){return v+"%";}});
-  h+='<div class="card" style="margin-bottom:12px"><div class="ch"><h3>Engagement trend vs benchmark</h3>'+
-    '<span class="note">GA4 engaged-session rate per day · dashed line = industry benchmark</span>'+srcTag(S.sources.ga4,"GA4")+'</div><div class="cb">'+
-    (te?te.svg:building("GA4",n))+
-    '<div class="kpis" style="margin-top:12px">'+
-      kpi("ENGAGED RATE (30D)",engRate!=null?engRate.toFixed(0)+"%":"—","benchmark "+IB.engRate.lo+"–"+IB.engRate.hi+"%",null,mix(sp(),engRate!=null&&engRate<IB.engRate.lo?{warn:true}:{ok:true}))+
-    '</div>'+
-    '<div class="foot">Sits '+(engRate!=null&&engRate<IB.engRate.lo?"below":"at or above")+' the industry benchmark. Source: '+esc(IB.engRate.src)+'.</div>'+
+  /* ---------- HDI vs INDUSTRY BENCHMARK (ahead / in line / behind) ---------- */
+  function brow(metric,hdi,bench,p){return '<tr><td>'+metric+'</td><td class="n">'+hdi+'</td><td>'+bench+'</td><td class="'+(p.warn?"z":"n")+'"><b>'+p.t.toUpperCase()+'</b></td></tr>';}
+  h+='<div class="card" style="margin-bottom:12px"><div class="ch"><h3>HDI vs industry benchmark</h3><span class="note">is HDI ahead, in line, or behind</span>'+srcTag(S.sources.ga4,"GA4")+'</div><div class="cb">'+
+    '<table><thead><tr><th>Metric</th><th>HDI now</th><th>Industry</th><th>Position</th></tr></thead><tbody>'+
+      brow("Engagement rate — all traffic",(engRate!=null?engRate.toFixed(0)+"%":"—"),IB.engRate.lo+"–"+IB.engRate.hi+"%",epos)+
+      (organic?brow("Engagement rate — Organic Search",organic.er+"%",IB.engRate.lo+"–"+IB.engRate.hi+"%",posLabel(organic.er,IB.engRate.lo,IB.engRate.hi)):"")+
+      brow("Avg engaged time / session",(avgEng!=null?Math.round(avgEng)+"s":"—"),"~"+sessBench+"s",tpos)+
+    '</tbody></table>'+
+    '<div class="foot">Source: '+esc(IB.engRate.src)+'; session-duration median from the same GA4 benchmark set. Position compares HDI\'s current 30-day figure to the cited industry range.</div>'+
     '</div></div>';
 
-  /* ---------- DETAIL: correlation ---------- */
-  if(r_se!=null){
-    var strength=Math.abs(r_se)>=0.7?"strong":Math.abs(r_se)>=0.4?"moderate":"weak";
-    h+='<div class="card" style="margin-bottom:12px"><div class="ch"><h3>Correlation</h3><span class="note">not causation</span></div><div class="cb">'+
-      '<p style="margin:0 0 8px">Daily sessions and engaged sessions show a <b>'+strength+'</b> correlation (r = '+r_se.toFixed(2)+', n = '+n+'). '+
-      'That is expected — engaged sessions are a subset of sessions — so it confirms the data is internally consistent, not that one drives the other.</p>'+
-      '<div class="foot">More days will let us test cross-source links (e.g. channel mix vs engagement) with enough power to be worth acting on. With observational data we report correlation and a hypothesis; we do not claim causation.</div>'+
+  /* ---------- ENGAGEMENT BY CHANNEL — where it's working (the lever) ---------- */
+  if(chArr.length){
+    h+='<div class="card" style="margin-bottom:12px"><div class="ch"><h3>Engagement by channel — where it\'s working</h3>'+
+      '<span class="note">last 30 days · bar = engaged rate · tick = benchmark · n = sessions</span>'+srcTag(S.sources.ga4,"GA4")+'</div><div class="cb">'+
+      bars(chArr.map(function(c){var meets=c.er>=IB.engRate.lo;return [c.channel+" · n="+num(c.sessions),c.er,meets?"var(--lime)":"var(--sage)",c.er+"%",IB.engRate.lo,meets?" ok":""];}),100)+
+      '<div class="foot">'+(topCh?"<b>"+esc(topCh.channel)+"</b> is the largest channel (n="+num(topCh.sessions)+") but engages at just "+topCh.er+"%, dragging the overall rate down. ":"")+
+      (goodCh.length?"<b>"+goodCh.map(function(c){return esc(c.channel)+" ("+c.er+"%)";}).join(", ")+"</b> already meet the "+IB.engRate.lo+"–"+IB.engRate.hi+"% benchmark — growing them lifts quality.":"")+'</div>'+
       '</div></div>';
   }
+
+  /* ---------- ENGAGEMENT TREND vs benchmark (with trend line) ---------- */
+  var engSeries=ga.map(function(d){return {label:(d.date||"").slice(5),v:(d.sessions>0?Math.round(d.engaged/d.sessions*100):null)};});
+  var te=trend(engSeries,{benchmark:engBench,benchmarkLabel:"benchmark",trendline:true,fmt:function(v){return v+"%";}});
+  h+='<div class="card" style="margin-bottom:12px"><div class="ch"><h3>Engagement trend vs benchmark</h3>'+
+    '<span class="note">GA4 engaged-session rate per day · dashed teal = benchmark & trend</span>'+srcTag(S.sources.ga4,"GA4")+'</div><div class="cb">'+
+    (te?te.svg:building("GA4",n))+
+    '<div class="foot">Engagement rate rose from '+(engRateP!=null?Math.round(engRateP)+"%":"—")+' to '+(engRate!=null?engRate.toFixed(0)+"%":"—")+' over the last 30 days — improving, but still '+epos.t+' the '+IB.engRate.lo+'–'+IB.engRate.hi+'% benchmark. Source: '+esc(IB.engRate.src)+'.</div>'+
+    '</div></div>';
+
+  /* ---------- CORRELATION & CAUSATION ---------- */
+  if(r_se!=null){
+    var strength=Math.abs(r_se)>=0.7?"strong":Math.abs(r_se)>=0.4?"moderate":"weak";
+    h+='<div class="card" style="margin-bottom:12px"><div class="ch"><h3>Correlation &amp; causation</h3><span class="note">what we can and can\'t claim</span></div><div class="cb">'+
+      '<p style="margin:0 0 8px">Daily sessions and engaged sessions correlate <b>'+strength+'ly</b> (r = '+r_se.toFixed(2)+', n = '+n+') — expected, since engaged is a subset of sessions.</p>'+
+      '<p style="margin:0 0 8px">Engagement rate rose '+(engRateP!=null?Math.round(engRateP)+"% → "+(engRate!=null?engRate.toFixed(0)+"%":"—"):"")+' and engaged time '+(avgEngP!=null?Math.round(avgEngP)+"s → "+(avgEng!=null?Math.round(avgEng)+"s":"—"):"")+' over the same window traffic grew '+pctTxt(mom)+'. Deeper-engagement metrics rising <i>alongside</i> volume is a good sign the growth is real audience, not bots or a tracking artifact.</p>'+
+      '<div class="foot">That is a <b>hypothesis, not proven causation</b> — there is no campaign or source-change record tied to these dates to point to. We flag likely drivers; we do not assert them from observational data.</div>'+
+      '</div></div>';
+  }
+
+  /* ---------- CONTEXT: how GA4 and Clarity relate ---------- */
+  h+='<div class="card" style="margin-bottom:12px"><div class="ch"><h3>How to read GA4 vs Clarity</h3><span class="note">different tools, not conflicting numbers</span></div><div class="cb">'+
+    '<p style="margin:0"><b>GA4</b> measures <b>all website traffic</b> — every session and visitor, with Google\'s own bot filtering — so its counts run in the thousands. '+
+    '<b>Clarity</b> records a <b>behaviour sample</b> (session replays and heatmaps) on a fraction of visits, and separately flags bots, so its counts run in the dozens. '+
+    'Use <b>GA4 for how much traffic</b>, and <b>Clarity for how visitors behave and how many are bots</b> (Website tab).</p>'+
+    '</div></div>';
 
   /* ---------- DETAIL: Clarity human-vs-bot trend (our stored history) ---------- */
   var clr=(RAW.clarity&&Array.isArray(RAW.clarity.rows))?RAW.clarity.rows.filter(function(r){return r.data&&r.data.mode==="live"&&r.data.metrics&&r.data.metrics.traffic&&r.data.metrics.traffic.totalBotSessionCount!=null;}):[];
@@ -1045,6 +1088,14 @@ function insights(){
       '<div class="foot ok">These are Clarity\'s behaviour-sample counts (dozens), not total site traffic — see "How to read GA4 vs Clarity" above. Clarity only serves the last 72 hours, so this history exists only because the pipeline stores each day into our own database. It cannot be backfilled before the first stored day — it grows forward one point per day.</div>'+
       '</div></div>';
   }
+
+  /* ---------- WHAT LEADERSHIP SHOULD TAKE AWAY ---------- */
+  h+='<div class="card" style="margin-bottom:12px;border-color:#BFDBD6;background:var(--tealb)"><div class="ch" style="border-color:#CFE3DF"><h3 style="color:var(--teal)">What leadership should take away</h3></div><div class="cb"><ul style="margin:0;padding-left:18px;color:var(--teal)">'+
+    '<li style="margin-bottom:7px"><b>Traffic is compounding</b> — sessions '+pctTxt(mom)+' and visitors '+pctTxt(uMom)+' month over month.</li>'+
+    '<li style="margin-bottom:7px"><b>Engagement is the gap</b> — '+(engRate!=null?engRate.toFixed(0)+"%":"—")+' engaged vs a '+IB.engRate.lo+'–'+IB.engRate.hi+'% benchmark, and '+(avgEng!=null?Math.round(avgEng)+"s":"—")+' engaged time vs ~'+sessBench+'s: HDI is <b>behind</b> on quality (though both improved sharply vs the prior 30 days).</li>'+
+    (chArr.length?'<li style="margin-bottom:7px"><b>What already works</b> — '+(goodCh.length?goodCh.map(function(c){return esc(c.channel)+" ("+c.er+"%)";}).join(", ")+" meet the benchmark":"higher-intent channels engage best")+(topCh?"; "+esc(topCh.channel)+" is the biggest channel (n="+num(topCh.sessions)+") but engages at just "+topCh.er+"%":"")+'.</li>':'')+
+    '<li><b>Lever</b> — convert high-volume '+(topCh?esc(topCh.channel):"Direct")+' into engagement, and grow the channels that already clear the benchmark.</li>'+
+    '</ul></div></div>';
 
   /* ---------- NOT YET MEASURED (roadmap, not failures) ---------- */
   h+='<div class="card"><div class="ch"><h3>Not yet measured</h3><span class="note">data we are not collecting yet — by design</span></div><div class="cb"><ul style="margin:0;padding-left:18px">'+

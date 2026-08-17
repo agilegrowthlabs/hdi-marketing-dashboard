@@ -109,11 +109,19 @@ Rules specific to this panel:
 
 ## DO NOT REMOVE — THE INSIGHTS TAB + BOT-FILTER TOGGLE (load-bearing)
 Second tab, "Insights" (`data-t="ins"`, pane `#p-ins`), rendered by `insights()`. It is the
-interpretation layer: an all-GA4 "What's working, what's not" verdict strip (traffic trend,
-visitors, new visitors, engagement vs benchmark — nothing from Clarity on this strip, so its
-counts never appear to contradict GA4's), a "How to read GA4 vs Clarity" context box, GA4 trend
-diagnostics (MoM/WoW/slope), an engagement-vs-benchmark trend chart, a correlation section, the
-Clarity human-vs-bot stored-history table, and a "Not yet measured" roadmap note. Preserve it. Restyle freely, but keep:
+interpretation layer, modelled on Henry's reference images (comparison → trend → benchmark
+position → takeaway). In order: a narrative headline + all-GA4 comparison KPI cards (each shows
+current, the ↑/↓ vs the prior 30 days, and the prior baseline); a Traffic-trend chart with a
+dashed regression trend line; an "HDI vs industry benchmark" table that labels each metric
+AHEAD / IN LINE / BEHIND; an "Engagement by channel" bar chart (the lever — bars coloured by
+whether they clear the benchmark, tick = benchmark, n = sessions); an engagement-vs-benchmark
+trend chart; a "Correlation & causation" card (states the correlation, then explicitly what we
+can't claim as causal); a "How to read GA4 vs Clarity" context box; the Clarity human-vs-bot
+stored-history table; a green "What leadership should take away" box; and a "Not yet measured"
+roadmap note. Nothing from Clarity sits on the GA4 strip, so the two never appear to contradict.
+Preserve it. Restyle freely, but keep:
+- `trend(series, opts)` supports `opts.trendline` (dashed regression) and `opts.benchmark`
+  (dashed reference line) — the Insights charts use both. Don't remove them.
 - `insights()` and the stat helpers `_sum`/`_mean`/`pearson`/`slopePerDay`/`growthPct`/`pctTxt`,
   and the `IB` researched-benchmark constants (each shown with its source in-UI).
 - The header toggle `#botTog` (INCLBOTS) and its handler.
@@ -202,14 +210,15 @@ Must be 200. Then open `https://hdi-marketing-dashboard.netlify.app/?v=NNN` and 
   ~43%). Confirm the numbers match `S.sources.clarity.data.metrics.traffic` and are NOT
   hardcoded; confirm the card is labeled by Clarity's own window (not the date range) and is
   not attached to the GA4 numbers.
-- Insights tab: the "What's working, what's not" strip is ALL GA4 (traffic trend, visitors,
-  new visitors, engagement vs 52–56%) — no Clarity figure on it, so nothing appears to
-  contradict GA4. A "How to read GA4 vs Clarity" box explains the two tools. Metrics we don't
-  collect yet (visitor→lead, sourced pipeline) live in a "Not yet measured" note, NOT as red
-  verdicts. There are two trend charts (traffic, and engagement-vs-benchmark); the Traffic-trend chart +
-  MoM/WoW/slope/engaged-rate compute from GA4 history; the Correlation section says "not
-  causation"; the Clarity human-vs-bot table shows the stored days. Confirm nothing is
-  hardcoded (numbers move as data flows) and it does NOT change when you switch the date range.
+- Insights tab: narrative headline + all-GA4 comparison cards (current, ↑/↓ vs prior 30d,
+  baseline); Traffic-trend chart with a dashed trend line; an "HDI vs industry benchmark" table
+  labelling each metric AHEAD/IN LINE/BEHIND; "Engagement by channel" bars (bar = engaged rate,
+  tick = benchmark, n = sessions); an engagement-vs-benchmark trend chart; "Correlation &
+  causation" (correlation stated, causation explicitly NOT claimed); "How to read GA4 vs
+  Clarity"; the Clarity human-vs-bot table; a green "What leadership should take away" box; and a
+  "Not yet measured" note (visitor→lead, sourced pipeline — data we don't collect yet, NOT red
+  verdicts). Confirm every number is computed live (they move as data flows, nothing hardcoded),
+  the benchmark POSITION labels are correct, and the channel bars/lever text match the data.
 - Bot filter: the header "Include bots" toggle flips the Website → Behaviour "Sessions" figure
   AND the Insights "Website visitors" card between human-only (e.g. 68) and all-traffic (e.g.
   119 incl. bots), and updates the Traffic-quality filter line. Bot figures are plain COUNTS,
