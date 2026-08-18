@@ -1,7 +1,6 @@
 {
-  "_note": "LinkedIn V1 manual upload. Replace this file with the next export; the dashboard reads it live. Numbers below are the LinkedIn analytics export for the stated period.",
+  "_note": "LinkedIn V1 manual upload. Trend series reconstructed from the HDI LinkedIn executive deck; current-period highlights + content table + engagers + demographics from the LinkedIn analytics export (Jul 18 – Aug 16, 2026). Replace this file with the next export to refresh; the tab reads it live.",
   "period": "Jul 18 – Aug 16, 2026",
-  "period_raw": "7/18/2026 – 8/16/2026",
   "updated": "2026-08-18",
   "profile": {
     "impressions": {"value": 3240, "delta": 117.2},
@@ -11,22 +10,58 @@
   },
   "followers": {
     "total": 732,
+    "since_start_pct": 285,
     "new_30d": {"value": 35, "delta": 59.1},
     "auto_invited": {"value": 5, "delta": 0},
     "search_appearances": {"value": 1544, "delta": 3.7, "window": "last 7 days"}
+  },
+  "trends": {
+    "followers_monthly": [
+      ["Aug '24",181],["Sep",195],["Oct",205],["Nov",210],["Dec",216],
+      ["Jan '25",222],["Feb",230],["Mar",242],["Apr",256],["May",300],["Jun",435],["Jul",460],["Aug",485],["Sep",496],["Oct",502],["Nov",510],["Dec",516],
+      ["Jan '26",526],["Feb",545],["Mar",575],["Apr",610],["May",650],["Jun",678],["Jul",697],["Aug",732]
+    ],
+    "engagement_monthly": [
+      ["Apr '25",6],["May",6],["Jun",4],["Jul",6],["Aug",12],["Sep",1],["Oct",6],["Nov",18],["Dec",13],
+      ["Jan '26",1],["Feb",2],["Mar",8.5],["Apr",10],["May",7]
+    ],
+    "visitors_monthly": [
+      ["Sep '24",40],["Oct",108],["Nov",55],["Dec",35],
+      ["Jan '25",100],["Feb",130],["Mar",148],["Apr",108],["May",90],["Jun",60],["Jul",62],["Aug",75],["Sep",118],["Oct",95],["Nov",78],["Dec",48],
+      ["Jan '26",52],["Feb",196],["Mar",130],["Apr",138],["May",137]
+    ]
+  },
+  "post_types": [
+    {"type":"Carousel","er":15.0,"n":5},
+    {"type":"Job","er":11.0,"n":2},
+    {"type":"Video","er":9.0,"n":1},
+    {"type":"Article","er":8.5,"n":5},
+    {"type":"Repost","er":7.7,"n":3},
+    {"type":"Share","er":7.0,"n":2},
+    {"type":"Document","er":5.9,"n":1},
+    {"type":"Image","er":3.6,"n":41}
+  ],
+  "benchmark": {"hdi":8.0,"company_low":1,"company_high":3,"personal_low":2,"personal_high":5,"under1k_low":2,"under1k_high":4},
+  "qoq": {
+    "engagement_rate": {"q2":8.5,"q1":4.0,"delta":113},
+    "impressions": {"q2":3485,"q1":2645,"delta":31.8},
+    "reactions":   {"q2":64,"q1":60,"delta":6.7},
+    "comments":    {"q2":7,"q1":5,"delta":40},
+    "reposts":     {"q2":8,"q1":6,"delta":33.3},
+    "unique_visitors": {"q2":526,"delta":21.2}
   },
   "engagers": [
     {"name": "Bonnie Cassidy", "title": "Chief Operating Officer, Health Data Innovations", "action": "Reacted to your post: \"One day of Epic's UGM is complete, and it's been a great start…\""},
     {"name": "Justin McNaughton", "title": "Partner @ CAS · Lawyer for fast-growing tech companies", "action": "Reacted to your post: \"No claims background and six months…\""}
   ],
   "posts": [
-    {"title": "One day of Epic's UGM is complete, and it's been a great start…", "by": "Becky Seefeldt", "date": "8/18/2026", "type": "Image",    "audience": "All followers", "impressions": 36,  "clicks": 1,   "ctr": 2.78,  "reactions": 1, "comments": 0, "reposts": 0, "er": 5.56},
-    {"title": "\"Our analytics team should be doing analytics, not translation.\"…", "by": "Becky Seefeldt", "date": "8/13/2026", "type": "Image",    "audience": "All followers", "impressions": 114, "clicks": 1,   "ctr": 0.88,  "reactions": 0, "comments": 0, "reposts": 0, "er": 0.88},
-    {"title": "We're excited to be at Epic's UGM next week…",                    "by": "Becky Seefeldt", "date": "8/12/2026", "type": "Image",    "audience": "All followers", "impressions": 206, "clicks": 6,   "ctr": 2.91,  "reactions": 5, "comments": 0, "reposts": 1, "er": 5.83},
-    {"title": "Confident decisions start with confident data. The HDI Advantage…", "by": "Becky Seefeldt", "date": "8/10/2026", "type": "Document", "audience": "All followers", "impressions": 320, "clicks": 149, "ctr": 46.56, "reactions": 5, "comments": 0, "reposts": 1, "er": 48.44},
-    {"title": "\"I would like to hire a professional.\" A technology leader…",       "by": "Becky Seefeldt", "date": "8/7/2026",  "type": "Image",    "audience": "All followers", "impressions": 206, "clicks": 7,   "ctr": 3.40,  "reactions": 7, "comments": 3, "reposts": 1, "er": 8.74},
-    {"title": "AI Ready Claims Data | Claims Data AI Readiness | HDI",              "by": "Becky Seefeldt", "date": "8/6/2026",  "type": "Article",  "audience": "All followers", "impressions": 438, "clicks": 12,  "ctr": 2.74,  "reactions": 3, "comments": 1, "reposts": 1, "er": 3.88},
-    {"title": "Would you trust a specialist who's only treated your condition a few times?…", "by": "Becky Seefeldt", "date": "8/4/2026", "type": "Document", "audience": "All followers", "impressions": 175, "clicks": 68, "ctr": 38.86, "reactions": 1, "comments": 0, "reposts": 2, "er": 40.57}
+    {"title": "One day of Epic's UGM is complete, and it's been a great start…", "by": "Becky Seefeldt", "date": "8/18/2026", "type": "Image",    "impressions": 36,  "clicks": 1,   "ctr": 2.78,  "reactions": 1, "comments": 0, "reposts": 0, "er": 5.56},
+    {"title": "\"Our analytics team should be doing analytics, not translation.\"…", "by": "Becky Seefeldt", "date": "8/13/2026", "type": "Image",    "impressions": 114, "clicks": 1,   "ctr": 0.88,  "reactions": 0, "comments": 0, "reposts": 0, "er": 0.88},
+    {"title": "We're excited to be at Epic's UGM next week…",                    "by": "Becky Seefeldt", "date": "8/12/2026", "type": "Image",    "impressions": 206, "clicks": 6,   "ctr": 2.91,  "reactions": 5, "comments": 0, "reposts": 1, "er": 5.83},
+    {"title": "Confident decisions start with confident data. The HDI Advantage…", "by": "Becky Seefeldt", "date": "8/10/2026", "type": "Document", "impressions": 320, "clicks": 149, "ctr": 46.56, "reactions": 5, "comments": 0, "reposts": 1, "er": 48.44},
+    {"title": "\"I would like to hire a professional.\" A technology leader…",       "by": "Becky Seefeldt", "date": "8/7/2026",  "type": "Image",    "impressions": 206, "clicks": 7,   "ctr": 3.40,  "reactions": 7, "comments": 3, "reposts": 1, "er": 8.74},
+    {"title": "AI Ready Claims Data | Claims Data AI Readiness | HDI",              "by": "Becky Seefeldt", "date": "8/6/2026",  "type": "Article",  "impressions": 438, "clicks": 12,  "ctr": 2.74,  "reactions": 3, "comments": 1, "reposts": 1, "er": 3.88},
+    {"title": "Would you trust a specialist who's only treated your condition a few times?…", "by": "Becky Seefeldt", "date": "8/4/2026", "type": "Document", "impressions": 175, "clicks": 68, "ctr": 38.86, "reactions": 1, "comments": 0, "reposts": 2, "er": 40.57}
   ],
   "demographics_location": [
     {"label": "Greater Cleveland", "value": 65, "pct": 8.9},
