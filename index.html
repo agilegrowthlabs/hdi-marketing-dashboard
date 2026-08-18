@@ -236,9 +236,9 @@ function shiftISO(iso,delta){var d=new Date(iso+"T00:00:00Z");d.setUTCDate(d.get
 function daysInclusive(a,b){if(!a||!b)return 0;return Math.round((new Date(b+"T00:00:00Z")-new Date(a+"T00:00:00Z"))/86400000)+1;}
 function fmtDay(iso){if(!iso)return "—";var d=new Date(iso+"T00:00:00Z");return d.toLocaleDateString("en-US",{month:"short",day:"numeric",timeZone:"UTC"});}
 function rowDate(r){return r.date||(r.pulled_at||"").slice(0,10);}
-/* HDI's public website base — page paths from GA4 link back to the live page (per the
-   /resources & /blog discussion, the site is hdi.com). Change here if the domain differs. */
-var SITE_URL="https://hdi.com";
+/* HDI's public website base — page paths from GA4 link back to the live page. HDI's true
+   site is www.hd-innovations.com (NOT hdi.com). Change here if the domain moves. */
+var SITE_URL="https://www.hd-innovations.com";
 function pageURL(p){p=(p||"").replace(/[?#].*$/,"");if(/^https?:/i.test(p))return p;return SITE_URL+(p.charAt(0)==="/"?"":"/")+p;}
 function pageLink(p,label){var pth=(p||"").replace(/[?#].*$/,"");var txt=label||pth||"/";
   /* only linkify real site paths — GA4 placeholders like "(not set)" or "(other)" aren't pages */
@@ -867,7 +867,7 @@ function website(){
 }
 
 /* ================= BLOG ================= */
-/* Blog posts now live at hdi.com/resources/[title] (team decision Aug 17; Meg+Adrian shipped the
+/* Blog posts now live at hd-innovations.com/resources/[title] (team decision Aug 17; Meg+Adrian shipped the
    permalink + redirects). Historical GA4 rows still carry the old root-level slugs, so isBlogPath
    accepts BOTH /resources/[slug] and legacy root content slugs, excluding nav pages and taxonomy.
    Ranked by sessions from the windowed landing_pages; links resolve to the canonical /resources/ URL. */
@@ -903,7 +903,7 @@ function blog(){
   h+='<div class="card"><div class="cb">'+
     '<div style="font-family:var(--m);font-size:11px;letter-spacing:.08em;color:var(--teal);text-transform:uppercase">Blog · thought leadership</div>'+
     '<h3 style="font-size:22px;letter-spacing:-.02em;margin:6px 0 4px;color:var(--ink)">Blog performance</h3>'+
-    '<p class="sub" style="margin:0">Which posts are gaining traction — the leading signal for thought leadership. '+esc(span)+', by Google Analytics sessions. Posts live at <code>hdi.com/resources/[title]</code>.</p>'+
+    '<p class="sub" style="margin:0">Which posts are gaining traction — the leading signal for thought leadership. '+esc(span)+', by Google Analytics sessions. Posts live at <code>hd-innovations.com/resources/[title]</code>.</p>'+
     '<div class="kpis" style="margin-top:14px">'+
       kpi("POSTS WITH TRAFFIC",String(posts.length),"individual posts tracked this range",null,mix(sp(),{hi:true}))+
       kpi("TOTAL BLOG SESSIONS",num(totalSess),"across all posts in range",null,sp())+
@@ -932,7 +932,7 @@ function blog(){
       '</div></div>';
   }
 
-  h+='<div class="card" style="margin-top:12px"><div class="cb"><div class="foot" style="margin:0">Blog posts are matched on the <code>hdi.com/resources/[title]</code> path (plus legacy root-slug posts still in GA4 history), excluding nav pages, category and tag archives. As older posts finish redirecting to <code>/resources/</code>, the match gets cleaner automatically.</div></div></div>';
+  h+='<div class="card" style="margin-top:12px"><div class="cb"><div class="foot" style="margin:0">Blog posts are matched on the <code>hd-innovations.com/resources/[title]</code> path (plus legacy root-slug posts still in GA4 history), excluding nav pages, category and tag archives. As older posts finish redirecting to <code>/resources/</code>, the match gets cleaner automatically.</div></div></div>';
 
   $("p-blog").innerHTML=h;
 }

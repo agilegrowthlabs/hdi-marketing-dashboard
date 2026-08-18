@@ -147,7 +147,7 @@ engaged with my content" (engager cards), and "Follower demographics · location
 Tab "Blog" (`data-t="blog"`, pane `#p-blog`), rendered by `blog()`, between Website and LinkedIn.
 Verona's dedicated thought-leadership view (Aug 17: "blog should have its own tab… top blog posts
 because we need to see which posts are gaining traction"). It ranks blog posts by sessions from the windowed
-`HIST.ga4_agg.landing_pages`. Blog posts now live at **`hdi.com/resources/[title]`** (Meg+Adrian
+`HIST.ga4_agg.landing_pages`. Blog posts now live at **`www.hd-innovations.com/resources/[title]`** (Meg+Adrian
 shipped the permalink + redirects). `isBlogPath()` accepts BOTH `/resources/[slug]` and legacy
 root-level content slugs still in GA4 history, while excluding nav pages (`SITE` list), `.php`
 legacy pages, and `/category/` + `/tag/` archives. Shows POSTS WITH TRAFFIC / TOTAL BLOG SESSIONS /
@@ -192,7 +192,7 @@ Preserve it. Restyle freely, but keep:
   `n` and the `%` mean (Henry Aug 17: the raw labels "have no context"). Keep the legend on any
   channel chart. `CHANNEL_DEF` holds the definitions.
 - Page paths link to the live page via `pageLink(path)` → `SITE_URL + path` (SITE_URL =
-  https://hdi.com; change there if the domain moves). Used on Top pages, Landing pages, and Blog.
+  https://www.hd-innovations.com — HDI's true site, NOT hdi.com; change there if it moves). Used on Top pages, Landing pages, and Blog.
   `pageLink` renders GA4 placeholders like "(not set)" as plain grey text, not broken links.
 - `bars()` accepts an optional `i[6]` = raw-HTML label (used for clickable page links); when
   absent it falls back to `esc(i[0])`. Don't remove the `i[6]` branch.
