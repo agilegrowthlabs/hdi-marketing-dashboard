@@ -214,8 +214,8 @@ svg.cv{width:100%;height:auto;display:block;overflow:visible}
 <script>
 (function(){
 "use strict";
-var API="/api/snapshots", BM_URL="/data/benchmarks.json";
-var S=null, BM=null, PV=false, DAYS=30, HIST={ga4:null,clarity:null,linkedin:null,hubspot:null,ga4_agg:null};
+var API="/api/snapshots", BM_URL="/data/benchmarks.json", LI_URL="/data/linkedin.json";
+var S=null, BM=null, LI=null, PV=false, DAYS=30, HIST={ga4:null,clarity:null,linkedin:null,hubspot:null,ga4_agg:null};
 /* INCLBOTS: the Clarity bot filter. false (default) = show human-only traffic (Clarity
    already excludes bots from totalSessionCount); true = add bots back for an all-traffic
    view. Governs Clarity-scoped numbers only — GA4 applies its own server-side filtering
@@ -931,100 +931,119 @@ function building(src,n){
 }
 
 /* ================= LINKEDIN ================= */
+/* V1 = manual upload. Reads /data/linkedin.json (global LI) and renders the HDI LinkedIn
+   executive layout (matches the exec deck). When a live LinkedIn feed exists, prefer it; until
+   then LI is the source. Replace data/linkedin.json with the next export to refresh this tab. */
 function linkedin(){
-  var li=S.sources.linkedin,h='';
-  var d=(!PV&&li&&li.data)||null;
-  var bm=BM&&BM.linkedin_engagement_rate_pct;
-
-  if(PV){
-    h+='<div class="kpis">'+
-      kpi("TOTAL FOLLOWERS","697","↑ 12 this period",null,sp())+
-      kpi("ENGAGEMENT RATE","8.5%",bm?("reference "+bm.company_page_low+"–"+bm.company_page_high+"%"):"",null,mix(sp(),{ok:true}))+
-      kpi("IMPRESSIONS","3,485","",null,sp())+
-      kpi("UNIQUE VISITORS","526","",null,mix(sp(),{hi:true}))+
-    '</div>';
-    h+='<div class="card"><div class="ch"><h3>Engagement by post type</h3><span class="note">n = posts published</span>'+tag("samp","Sample · preview")+'</div><div class="cb">'+
-      bars([["Carousel · n=5",15,"var(--lime)","15%"],["Job · n=2",11,"var(--sage)","11%"],
-            ["Video · n=1",9,"var(--sage)","9%"],["Article · n=5",8.5,"var(--sage)","8.5%"],
-            ["Repost · n=3",7.7,"var(--sage)","7.7%"],["Share · n=2",7,"var(--sage)","7%"],
-            ["Document · n=1",5.9,"var(--sage)","5.9%"],["Image · n=41",3.6,"var(--taupe)","3.6%"]])+
-      '<div class="foot warn">Post-type data is not carried by the upload payload — this chart exists in preview only and is deliberately omitted from the live view rather than faked.</div></div></div>';
-    $("p-li").innerHTML=h;return;
-  }
-
-  if(!d){
-    h+='<div class="card"><div class="ch"><h3>LinkedIn</h3>'+srcTag(li,"LinkedIn")+'</div><div class="cb">'+
-      empty("Nothing has been uploaded yet",
-        "The feed reports <code>"+esc((li&&li.error)||"no data")+"</code>.<br><br>"+
-        "LinkedIn is a manual upload. POST a period to <code>/linkedin-upload</code> with the <code>X-Upload-Token</code> header and this tab fills in.<br><br>"+
-        "Turn on <b>Preview layout</b> above to see the target layout.")+
+  var h='', L=LI;
+  if(!L){
+    h='<div class="card"><div class="ch"><h3>LinkedIn</h3>'+tag("none","Manual upload")+'</div><div class="cb">'+
+      empty("No LinkedIn export loaded yet",
+        "LinkedIn is a manual upload for V1. Drop the latest export into <code>/data/linkedin.json</code> and this tab fills in — company-page highlights, content performance, engagers, and follower demographics.")+
       '</div></div>';
     $("p-li").innerHTML=h;return;
   }
+  var P=L.profile||{}, F=L.followers||{}, posts=(L.posts||[]).slice();
+  function d(o){return o||{};}
+  function dpct(o){o=d(o);if(o.delta==null)return "";var v=o.delta;return (v>0?"↑ +":(v<0?"↓ ":"→ "))+Math.abs(v)+"%";}
+  function dcls(o){o=d(o);if(o.delta==null||o.delta===0)return {};return o.delta>0?{ok:true}:{warn:true};}
+  var period=esc(L.period||"the reporting period");
+  var upTag='<span class="tag stub" style="white-space:nowrap">Manual upload · '+period+'</span>';
 
-  /* ---- LIVE BRANCH ---- */
-  var per=d.period||{}, label=(per.start&&per.end)?(per.start+" → "+per.end):"period not stated";
-  var er=d.engagement_rate;
-  var beat = (er!=null&&bm&&bm.company_page_high!=null)?(er/bm.company_page_high):null;
-  var upTag='<span class="tag stub">Manual upload · '+esc(per.end||ago(li.pulled_at))+'</span>';
+  /* ---- Profile view highlights (header + 4 KPIs, matches deck slide) ---- */
+  h+='<div class="card"><div class="cb">'+
+    '<div style="font-family:var(--m);font-size:11px;letter-spacing:.08em;color:var(--teal);text-transform:uppercase">HDI // LinkedIn Performance</div>'+
+    '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin:6px 0 4px">'+
+      '<h3 style="font-size:22px;letter-spacing:-.02em;margin:0;color:var(--ink)">Your profile view highlights</h3>'+upTag+
+    '</div>'+
+    '<p class="sub" style="margin:0">LinkedIn company-page performance for <b>'+period+'</b>. Each % is the change vs the prior period.</p>'+
+    '<div class="kpis" style="margin-top:14px">'+
+      kpi("IMPRESSIONS",num(d(P.impressions).value),dpct(P.impressions),"vs prior period",mix(sp(),dcls(P.impressions)))+
+      kpi("REACTIONS",num(d(P.reactions).value),dpct(P.reactions),"vs prior period",mix(sp(),dcls(P.reactions)))+
+      kpi("COMMENTS",num(d(P.comments).value),dpct(P.comments),"vs prior period",mix(sp(),dcls(P.comments)))+
+      kpi("REPOSTS",num(d(P.reposts).value),dpct(P.reposts)||"no change","vs prior period",mix(sp(),{hi:true}))+
+    '</div>'+
+    srcTag2()+'</div></div>';
 
-  h+='<div class="kpis">'+
-    kpi("TOTAL FOLLOWERS",d.followers_total!=null?num(d.followers_total):"—",
-        d.followers_gained!=null?((d.followers_gained>=0?"↑ ":"↓ ")+Math.abs(d.followers_gained)+" this period"):"",
-        esc(label))+
-    kpi("ENGAGEMENT RATE",er!=null?er+"%":"—",
-        bm?("reference "+bm.company_page_low+"–"+bm.company_page_high+"%"):"",
-        beat?("≈"+beat.toFixed(1)+"× a page of this size"):"",
-        {ok:!!(beat&&beat>1)})+
-    kpi("IMPRESSIONS",d.impressions!=null?num(d.impressions):"—",
-        (d.impressions&&d.unique_visitors)?(Math.round(d.impressions/d.unique_visitors*10)/10+" per visitor"):"")+
-    kpi("UNIQUE VISITORS",d.unique_visitors!=null?num(d.unique_visitors):"—",
-        d.page_views!=null?(num(d.page_views)+" page views"):"",null,{hi:true})+
-  '</div>';
-
-  var ints=[["Reactions",d.reactions],["Comments",d.comments],["Reposts",d.reposts],["Page views",d.page_views]];
-  if(ints.some(function(x){return x[1]!=null;})){
-    h+='<div class="kpis">'+ints.map(function(x){
-      return kpi(x[0].toUpperCase(),x[1]!=null?num(x[1]):"—","");
-    }).join("")+'</div>';
-  }
-
-  h+='<div class="grid g23">';
-  if(er!=null&&bm){
-    h+='<div class="card"><div class="ch"><h3>Against benchmark</h3>'+upTag+'</div><div class="cb">'+
-      bars([
-        ["HDI company page",er,"var(--lime)",er+"%"],
-        ["Company page avg",bm.company_page_high,"var(--taupe)",bm.company_page_low+"–"+bm.company_page_high+"%"],
-        ["Personal page avg",bm.personal_page_high,"var(--taupe)",bm.personal_page_low+"–"+bm.personal_page_high+"%"],
-        ["Pages under 1,000",bm.pages_under_1000_high,"var(--taupe)",bm.pages_under_1000_low+"–"+bm.pages_under_1000_high+"%"]
-      ],Math.max(er,bm.personal_page_high,5))+
-      '<div class="foot'+(bm.hdi_target!=null?'':' warn')+'">'+
-      (bm.hdi_target!=null?'Approved target: '+bm.hdi_target+'%':'Shown as reference, not a target — unapproved in benchmarks.json. Rob owns approval.')+
-      '</div></div></div>';
-  }
-
-  var hs=HIST.linkedin;
-  h+='<div class="card"><div class="ch"><h3>Followers over time</h3>'+
-    '<span class="note">'+((hs&&hs.length)||0)+' periods uploaded</span>'+upTag+'</div><div class="cb">'+
-    (function(){
-      if(!hs||hs.length<2)return building("LinkedIn",(hs&&hs.length)||1);
-      var t=trend(hs.map(function(x){
-        var v=x.followers_total!=null?x.followers_total:(x.data&&x.data.followers_total);
-        var lb=(x.period&&x.period.end)||x.date||"";
-        return {label:String(lb).slice(5),v:v};
-      }),{trendline:true});
-      return t?t.svg:building("LinkedIn",hs.length);
-    })()+
+  /* ---- Follower highlights ---- */
+  h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Follower highlights</h3><span class="note">'+period+'</span>'+upTag+'</div><div class="cb">'+
+    '<div class="kpis">'+
+      kpi("TOTAL FOLLOWERS",num(F.total),"the audience you’ve built",null,mix(sp(),{hi:true}))+
+      kpi("NEW · LAST 30 DAYS",num(d(F.new_30d).value),dpct(F.new_30d),"vs prior period",mix(sp(),dcls(F.new_30d)))+
+      kpi("AUTO-INVITED (PREMIUM)",num(d(F.auto_invited).value),dpct(F.auto_invited)||"no change","invited to follow via Premium",sp())+
+      kpi("SEARCH APPEARANCES",num(d(F.search_appearances).value),dpct(F.search_appearances),esc(d(F.search_appearances).window||"in search results"),mix(sp(),dcls(F.search_appearances)))+
     '</div></div></div>';
 
-  h+='<div class="card" style="margin-top:12px"><div class="cb">'+
-    '<div class="foot" style="margin:0">This tab carries an upload date rather than a live tag — it is only as fresh as the last upload. '+
-    'Engagement by post type is omitted because the upload payload carries no post-level data; it is not estimated.'+
-    (hs&&hs.length===1?' Bulk history load needs the engine keyed by <code>period.end</code> first, or every period overwrites into one slot.':'')+
+  /* ---- Engagement rate by format (bar, matches deck) ---- */
+  if(posts.length){
+    var byType={};
+    posts.forEach(function(p){var t=p.type||"Other";var o=byType[t]||(byType[t]={sum:0,n:0});o.sum+=(p.er||0);o.n++;});
+    var typeArr=Object.keys(byType).map(function(t){return {type:t,er:byType[t].sum/byType[t].n,n:byType[t].n};}).sort(function(a,b){return b.er-a.er;});
+    var maxEr=typeArr[0]?typeArr[0].er:1;
+    h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Engagement rate by format</h3><span class="note">'+period+' · bar = avg engagement rate · n = posts</span>'+upTag+'</div><div class="cb">'+
+      bars(typeArr.map(function(x,i){return [x.type+" · n="+x.n,x.er,i===0?"var(--lime)":"var(--sage)",x.er.toFixed(1)+"%"];}),Math.max(maxEr,1))+
+      '<div class="foot"><b>'+esc(typeArr[0]?typeArr[0].type:"")+'</b> posts drive the highest engagement this period'+(typeArr[0]&&typeArr[0].er>10?" by a wide margin":"")+'. Richer formats (documents, carousels) consistently outperform single images — the mix is the lever.</div>'+
+      '</div></div>';
+  }
+
+  /* ---- Content engagement table (the export detail) ---- */
+  if(posts.length){
+    var rows=posts.map(function(p){
+      var title=esc(p.title||"");
+      return '<tr>'+
+        '<td style="max-width:340px"><div style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+title+'">'+title+'</div>'+
+        '<div style="color:var(--mute);font-size:10px">'+esc(p.by||"")+' · '+esc(p.date||"")+'</div></td>'+
+        '<td>'+esc(p.type||"—")+'</td>'+
+        '<td class="n">'+num(p.impressions)+'</td>'+
+        '<td class="n">'+(p.clicks!=null?num(p.clicks):"—")+'</td>'+
+        '<td class="n">'+(p.ctr!=null?p.ctr+"%":"—")+'</td>'+
+        '<td class="n">'+(p.reactions!=null?p.reactions:"—")+'</td>'+
+        '<td class="n">'+(p.comments!=null?p.comments:"—")+'</td>'+
+        '<td class="n">'+(p.reposts!=null?p.reposts:"—")+'</td>'+
+        '<td class="n"><b>'+(p.er!=null?p.er+"%":"—")+'</b></td>'+
+      '</tr>';
+    }).join("");
+    h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Content engagement</h3><span class="note">'+period+' · every post, as posted</span>'+upTag+'</div><div class="cb" style="overflow-x:auto">'+
+      '<table><thead><tr><th>Post</th><th>Type</th><th>Impr.</th><th>Clicks</th><th>CTR</th><th>Reactions</th><th>Comments</th><th>Reposts</th><th>Eng. rate</th></tr></thead><tbody>'+rows+'</tbody></table>'+
+      '<div class="foot">Engagement rate = (reactions + comments + reposts + clicks) ÷ impressions, as LinkedIn reports it. Document and article posts with a strong click-through pull the rate up sharply.</div>'+
+      '</div></div>';
+  }
+
+  /* ---- Who engaged with my content ---- */
+  var eng=L.engagers||[];
+  if(eng.length){
+    h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Who engaged with my content</h3><span class="note">notable engagers this period</span>'+upTag+'</div><div class="cb">'+
+      eng.map(function(e){
+        var init=(e.name||"?").split(/\s+/).map(function(w){return w.charAt(0);}).slice(0,2).join("").toUpperCase();
+        return '<div style="display:flex;gap:12px;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--line)">'+
+          '<div style="flex:0 0 auto;width:40px;height:40px;border-radius:50%;background:var(--teal);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px">'+esc(init)+'</div>'+
+          '<div style="min-width:0"><div style="font-weight:600">'+esc(e.name||"")+'</div>'+
+          '<div style="color:var(--mute);font-size:12px">'+esc(e.title||"")+'</div>'+
+          (e.action?'<div style="font-size:12px;margin-top:2px">'+esc(e.action)+'</div>':'')+'</div>'+
+        '</div>';
+      }).join("")+
+      '<div class="foot">These are people who reacted to or commented on HDI posts — warm signals for sales and relationship follow-up. With LinkedIn Premium, post engagers can be auto-invited to follow the page.</div>'+
+      '</div></div>';
+  }
+
+  /* ---- Follower demographics: location ---- */
+  var loc=L.demographics_location||[];
+  if(loc.length){
+    var lmax=loc.reduce(function(a,x){return Math.max(a,x.value||0);},0)||1;
+    h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Follower demographics · location</h3><span class="note">top metro areas · share of followers</span>'+upTag+'</div><div class="cb">'+
+      bars(loc.map(function(x,i){return [x.label,x.value,i===0?"var(--lime)":"var(--sage)",x.value+" · "+x.pct+"%"];}),lmax)+
+      '<div class="foot">Where your followers are concentrated — useful for event, regional-campaign, and ABM targeting. Cleveland, Chicago, and the NYC metro lead.</div>'+
+      '</div></div>';
+  }
+
+  h+='<div class="card" style="margin-top:12px"><div class="cb"><div class="foot" style="margin:0">'+
+    'This tab is a <b>manual LinkedIn upload</b> ('+period+') — it is only as fresh as the last export in <code>/data/linkedin.json</code>. '+
+    'Daily impression and follower <i>trend lines</i> populate when the time-series export is added; this view uses the summary export.'+
     '</div></div></div>';
 
   $("p-li").innerHTML=h;
 }
+function srcTag2(){return '<span class="tag stub">LinkedIn · manual upload</span>';}
 
 /* ================= BENCHMARKS ================= */
 function benchmarks(){
@@ -1061,6 +1080,9 @@ function benchmarks(){
 /* ================= SHELL ================= */
 function shell(){
   var m={hubspot:mode(S.sources.hubspot),ga4:mode(S.sources.ga4),clarity:mode(S.sources.clarity),linkedin:mode(S.sources.linkedin)};
+  /* LinkedIn V1 is a manual upload (data/linkedin.json → LI), not the pipeline feed. When that
+     upload is present, LinkedIn IS delivering — don't flag it as an empty source. */
+  if(LI&&m.linkedin!=="live")m.linkedin="live";
   var live=Object.keys(m).filter(function(k){return m[k]==="live";});
   var stub=Object.keys(m).filter(function(k){return m[k]==="stub";});
   var none=Object.keys(m).filter(function(k){return m[k]!=="live"&&m[k]!=="stub";});
@@ -1489,9 +1511,10 @@ function load(){
   $("feedTxt").textContent="Loading…";
   Promise.all([
     fetch(API,{cache:"no-store"}).then(function(r){if(!r.ok)throw new Error("feed "+r.status);return r.json();}),
-    fetch(BM_URL,{cache:"no-store"}).then(function(r){return r.ok?r.json():null;}).catch(function(){return null;})
+    fetch(BM_URL,{cache:"no-store"}).then(function(r){return r.ok?r.json():null;}).catch(function(){return null;}),
+    fetch(LI_URL,{cache:"no-store"}).then(function(r){return r.ok?r.json():null;}).catch(function(){return null;})
   ]).then(function(res){
-    S=res[0];BM=res[1];
+    S=res[0];BM=res[1];LI=res[2];
     return Promise.all([fetchHist("ga4"),fetchHist("clarity"),fetchHist("linkedin"),fetchHist("hubspot")]);
   }).then(function(){
     /* keep an explicit custom window across refreshes; otherwise re-apply the last preset (ends today) */

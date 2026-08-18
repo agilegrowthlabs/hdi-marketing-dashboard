@@ -119,6 +119,22 @@ Rules specific to this panel:
 - Never hardcode the counts. If Clarity returns no bot field, the card must disappear, not
   show a stale/zero number.
 
+## DO NOT REMOVE — THE LINKEDIN TAB + MANUAL UPLOAD (load-bearing)
+LinkedIn is a **manual upload for V1** (Verona: LinkedIn is Phase 1; direct API deferred). The
+data lives in **`data/linkedin.json`**, fetched in `load()` into the global **`LI`** (alongside
+`BM`), served at `/data/linkedin.json`. `linkedin()` renders the HDI LinkedIn executive layout
+(matches the exec deck Henry supplied Aug 18): profile-view highlights (Impressions / Reactions /
+Comments / Reposts with % vs prior), follower highlights (Total / New-30d / Auto-invited / Search
+appearances), "Engagement rate by format" bars, the full "Content engagement" post table, "Who
+engaged with my content" (engager cards), and "Follower demographics · location" bars.
+- To refresh: replace `data/linkedin.json` with the next export (same shape). No code change.
+- `shell()` marks `m.linkedin="live"` when `LI` is present, so the amber "LINKEDIN has never
+  received an upload" banner does NOT fire while a manual upload exists. Keep that guard.
+- Numbers come only from `data/linkedin.json` — never hardcode LinkedIn metrics into index.html.
+- Daily trend lines (impressions/followers over time) are intentionally omitted — the summary
+  export carries no daily series. Don't fake them; add when a time-series export exists.
+- If the pipeline ever delivers a live LinkedIn feed, prefer `S.sources.linkedin`; until then `LI`.
+
 ## DO NOT REMOVE — THE BLOG TAB (load-bearing)
 Tab "Blog" (`data-t="blog"`, pane `#p-blog`), rendered by `blog()`, between Website and LinkedIn.
 Verona's dedicated thought-leadership view (Aug 17: "blog should have its own tab… top blog posts
