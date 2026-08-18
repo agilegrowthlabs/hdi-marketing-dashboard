@@ -236,6 +236,36 @@ function shiftISO(iso,delta){var d=new Date(iso+"T00:00:00Z");d.setUTCDate(d.get
 function daysInclusive(a,b){if(!a||!b)return 0;return Math.round((new Date(b+"T00:00:00Z")-new Date(a+"T00:00:00Z"))/86400000)+1;}
 function fmtDay(iso){if(!iso)return "—";var d=new Date(iso+"T00:00:00Z");return d.toLocaleDateString("en-US",{month:"short",day:"numeric",timeZone:"UTC"});}
 function rowDate(r){return r.date||(r.pulled_at||"").slice(0,10);}
+/* HDI's public website base — page paths from GA4 link back to the live page (per the
+   /resources & /blog discussion, the site is hdi.com). Change here if the domain differs. */
+var SITE_URL="https://hdi.com";
+function pageURL(p){p=(p||"").replace(/[?#].*$/,"");if(/^https?:/i.test(p))return p;return SITE_URL+(p.charAt(0)==="/"?"":"/")+p;}
+function pageLink(p,label){var pth=(p||"").replace(/[?#].*$/,"");var txt=label||pth||"/";
+  /* only linkify real site paths — GA4 placeholders like "(not set)" or "(other)" aren't pages */
+  if(!/^\//.test(pth)||/^\(/.test(pth))return '<span style="color:var(--mute)">'+esc(txt)+'</span>';
+  return '<a href="'+esc(pageURL(pth))+'" target="_blank" rel="noopener" style="color:var(--teal);border-bottom:1px solid var(--sage);text-decoration:none">'+esc(txt)+'</a>';}
+/* Plain-language definitions for GA4's default channel groups — most people don't know what
+   "Unassigned" or "AI Assistant" mean. Rendered under the channel charts for the channels present. */
+var CHANNEL_DEF={
+  "Direct":"typed your address or used a bookmark — no referrer recorded",
+  "Organic Search":"found you through an unpaid Google/Bing search",
+  "Organic Social":"clicked through from an unpaid social post (LinkedIn, etc.)",
+  "Organic Video":"came from a video platform (YouTube, etc.)",
+  "Referral":"followed a link from another website",
+  "Email":"clicked a link in an email",
+  "Paid Search":"clicked a paid search ad",
+  "Paid Social":"clicked a paid social ad",
+  "Display":"clicked a display/banner ad",
+  "Affiliates":"came through an affiliate link",
+  "Unassigned":"GA4 couldn't identify the source — usually a tracking gap or a declined cookie consent",
+  "AI Assistant":"arrived from an AI tool (ChatGPT, Perplexity, Gemini, etc.)"
+};
+function channelLegend(names){
+  var seen={},out=[];
+  (names||[]).forEach(function(n){if(n&&!seen[n]&&CHANNEL_DEF[n]){seen[n]=1;out.push("<b>"+esc(n)+"</b> — "+esc(CHANNEL_DEF[n]));}});
+  if(!out.length)return "";
+  return '<div class="foot">What these channels mean: '+out.join("; ")+'. <b>n</b> = number of sessions; the <b>%</b> on the right is that channel’s engagement rate (share of its sessions that were actively engaged).</div>';
+}
 function earliestISO(){var min=null;["ga4","clarity","linkedin","hubspot"].forEach(function(src){var raw=RAW[src];if(!raw||!Array.isArray(raw.rows))return;raw.rows.forEach(function(r){var d=rowDate(r);if(d&&(!min||d<min))min=d;});});return min||shiftISO(todayISO(),-89);}
 function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
 function full(v){return (v==null)?"—":"$"+Math.round(v).toLocaleString("en-US");}
@@ -253,7 +283,7 @@ function bars(items,max){
   var mx=max||Math.max.apply(null,items.map(function(i){return i[1]||0;}))||1;
   return '<div class="rows">'+items.map(function(i){
     var v=i[1],w=v?Math.max(v/mx*100,0.7):0;
-    return '<div class="row"><span class="lb">'+esc(i[0])+'</span><span class="tr">'+
+    return '<div class="row"><span class="lb">'+(i[6]||esc(i[0]))+'</span><span class="tr">'+
       (v?'<i style="width:'+w+'%;background:'+(i[2]||"var(--sage)")+'"></i>':"")+
       (i[4]!=null?'<u style="left:'+Math.min(i[4]/mx*100,99)+'%"></u>':"")+
       '</span><span class="vv'+(v?(i[5]||""):" z")+'">'+(i[3]!==undefined?i[3]:(v?num(v):"0"))+'</span></div>';
@@ -718,30 +748,44 @@ function website(){
       (prov?'<div class="foot warn">The '+prov+' most recent days are provisional. GA4 figures settle over roughly 48 hours and get re-pulled — do not quote them as final.</div>':"")+
       '</div></div>';
 
+    var agg=(!PV&&HIST.ga4_agg)||null;
     var chS=(!PV&&W2)?ga4Channels(W2.curDates):null;
     if(chS&&chS.length){
       var totS=chS.reduce(function(a,c){return a+c.sessions;},0)||1, top2=chS.slice(0,2);
-      h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Channels — what\'s driving results</h3><span class="note">'+esc(winDesc())+' · bar = engaged rate · lime = clears the '+IB.engRate.lo+'–'+IB.engRate.hi+'% benchmark · n = sessions</span>'+srcTag(g,"GA4")+'</div><div class="cb">'+
+      h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Channels — what\'s driving results</h3><span class="note">'+esc(winDesc())+' · bar = engagement rate · lime = clears the '+IB.engRate.lo+'–'+IB.engRate.hi+'% benchmark · n = sessions</span>'+srcTag(g,"GA4")+'</div><div class="cb">'+
         bars(chS.map(function(c){var m=c.er>=IB.engRate.lo;return [c.channel+" · n="+num(c.sessions),c.er,m?"var(--lime)":"var(--sage)",c.er+"%",null,m?" ok":""];}),100)+
         '<div class="foot"><b>'+top2.map(function(c){return esc(c.channel)+" ("+Math.round(c.sessions/totS*100)+"% of sessions)";}).join(", ")+'</b> drive most of the traffic. '+
-        (chS[0]?"On the biggest channel ("+esc(chS[0].channel)+") engagement is "+(benchPos(chS[0].er,IB.engRate.lo,IB.engRate.hi).warn?"below":"at/above")+" the "+IB.engRate.lo+"–"+IB.engRate.hi+"% benchmark ("+chS[0].er+"%) — that mix is what pulls the overall rate "+(engRateW!=null&&engRateW<IB.engRate.lo?"down":"up")+".":"")+
-        ' Correlation only — cause can\'t be attributed without a campaign or source-change record.</div>'+
+        (chS[0]?"On the biggest channel ("+esc(chS[0].channel)+") engagement is "+(benchPos(chS[0].er,IB.engRate.lo,IB.engRate.hi).warn?"below":"at/above")+" the "+IB.engRate.lo+"–"+IB.engRate.hi+"% benchmark ("+chS[0].er+"%).":"")+'</div>'+
+        channelLegend(chS.map(function(c){return c.channel;}))+
+        '<div class="foot">To see <b>which pages each channel sends people to</b> — the driver behind each channel — the GA4 pull needs one more report (landing-page × channel). Flagged for the data layer; not in the feed yet. The landing-pages panel below is the closest current view of what\'s driving sessions.</div>'+
         '</div></div>';
     } else {
-      var agg=(!PV&&HIST.ga4_agg)||null;
       var chans=agg?agg.channels:((!PV&&g.data&&g.data.channels)||[]);
       if(chans.length){
         var byCh={};chans.forEach(function(x){byCh[x.channel]=(byCh[x.channel]||0)+(x.sessions||0);});
         var chArr2=Object.keys(byCh).map(function(k){return [k,byCh[k]];}).sort(function(a,b){return b[1]-a[1];});
-        h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Channels</h3><span class="note">latest snapshot</span>'+srcTag(g,"GA4")+'</div><div class="cb">'+
-          bars(chArr2.map(function(x,i){return [x[0],x[1],i===0?"var(--lime)":"var(--sage)"];}))+'</div></div>';
+        h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Channels</h3><span class="note">latest snapshot · n = sessions</span>'+srcTag(g,"GA4")+'</div><div class="cb">'+
+          bars(chArr2.map(function(x,i){return [x[0]+" · n="+num(x[1]),x[1],i===0?"var(--lime)":"var(--sage)"];}))+
+          channelLegend(chArr2.map(function(x){return x[0];}))+'</div></div>';
       }
+    }
+    /* Landing pages — the pages sessions START on = the entry points driving traffic (Henry Aug 17:
+       "what's driving the results"). Windowed via agg.landing_pages, each page linked and colour-coded
+       by engagement rate so you can see what pulls people in AND whether it holds them. */
+    var lps=(agg&&agg.landing_pages)||[];
+    if(lps.length){
+      var lpMax=lps[0].sessions||1;
+      h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Landing pages — what\'s bringing people in</h3><span class="note">'+esc(winDesc())+' · the pages sessions START on · bar = sessions · % = engagement rate · lime clears benchmark</span>'+srcTag(g,"GA4")+'</div><div class="cb">'+
+        bars(lps.slice(0,10).map(function(x){var m=x.er>=IB.engRate.lo;return [x.landing_page,x.sessions,m?"var(--lime)":"var(--sage)",num(x.sessions)+" · "+x.er+"% eng",null,"",pageLink(x.landing_page)];}),lpMax)+
+        '<div class="foot">These are the pages people <b>arrive on</b> — the real entry points driving your sessions. High sessions with a <b>low engagement rate</b> is a page pulling people in but not holding them; high sessions with a high rate is a winner to double down on. Click any page to open it.</div>'+
+        '</div></div>';
     }
     var tp=agg?agg.top_pages:((!PV&&g.data&&g.data.top_pages)||[]);
     if(tp.length){
-      h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Top pages</h3>'+
-        '<span class="note">latest snapshot, not the range</span>'+srcTag(g,"GA4")+'</div><div class="cb">'+
-        bars(tp.slice(0,8).map(function(x,i){return [x.path,x.views,i===0?"var(--lime)":"var(--sage)"];}))+
+      h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Top pages — what\'s performing</h3>'+
+        '<span class="note">most-viewed pages · latest snapshot · bar = views · s/view = avg engaged time</span>'+srcTag(g,"GA4")+'</div><div class="cb">'+
+        bars(tp.slice(0,10).map(function(x,i){var per=x.views?Math.round((x.engagement_seconds||0)/x.views):null;return [x.path,x.views,i===0?"var(--lime)":"var(--sage)",num(x.views)+(per!=null?" · "+per+"s/view":""),null,"",pageLink(x.path)];}))+
+        '<div class="foot">Ranked by views. <b>s/view</b> is average engaged time per view — a quick read on which pages hold attention and which don\'t. Click any page to open it.</div>'+
         '</div></div>';
     }
   } else {
@@ -856,7 +900,7 @@ function blog(){
 
   if(posts.length){
     h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Top blog posts</h3><span class="note">'+esc(span)+' · by page views</span>'+srcTag(g,"GA4")+'</div><div class="cb">'+
-      bars(posts.slice(0,12).map(function(x,i){return [norm(x).replace(/^\/blog\//,"").replace(/\/$/,"")||norm(x),x.views,i===0?"var(--lime)":"var(--sage)"];}))+
+      bars(posts.slice(0,12).map(function(x,i){var ttl=norm(x).replace(/^\/blog\//,"").replace(/\/$/,"")||norm(x);return [ttl,x.views,i===0?"var(--lime)":"var(--sage)",num(x.views),null,"",pageLink(norm(x),ttl)];}))+
       '<div class="foot">Ranked by views over '+esc(span)+'. These are the posts earning the most attention — the ones to double down on.</div>'+
       '</div></div>';
   } else {
@@ -868,7 +912,7 @@ function blog(){
 
   if(other.length){
     h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Other content pages</h3><span class="note">'+esc(span)+' · pages outside the main site nav · interim proxy</span>'+srcTag(g,"GA4")+'</div><div class="cb">'+
-      bars(other.slice(0,10).map(function(x,i){return [norm(x),x.views,i===0?"var(--lime)":"var(--sage)"];}))+
+      bars(other.slice(0,10).map(function(x,i){return [norm(x),x.views,i===0?"var(--lime)":"var(--sage)",num(x.views),null,"",pageLink(norm(x))];}))+
       '<div class="foot">Until posts move to <code>/blog/</code>, this is the closest available signal — top pages that aren’t part of the main navigation. Some are likely blog posts, some may be campaign or landing pages.</div>'+
       '</div></div>';
   }
@@ -1184,6 +1228,7 @@ function insights(){
       bars(chArr.map(function(c){var meets=c.er>=IB.engRate.lo;return [c.channel+" · n="+num(c.sessions),c.er,meets?"var(--lime)":"var(--sage)",c.er+"%",null,meets?" ok":""];}),100)+
       '<div class="foot">'+(topCh?"<b>"+esc(topCh.channel)+"</b> is the largest channel (n="+num(topCh.sessions)+") but engages at just "+topCh.er+"%, dragging the overall rate down. ":"")+
       (goodCh.length?"<b>"+goodCh.map(function(c){return esc(c.channel)+" ("+c.er+"%)";}).join(", ")+"</b> already meet the "+IB.engRate.lo+"–"+IB.engRate.hi+"% benchmark — growing them lifts quality.":"")+'</div>'+
+      channelLegend(chArr.map(function(c){return c.channel;}))+
       '</div></div>';
   }
 
@@ -1347,12 +1392,19 @@ function normHist(payload,source){
    deduped on the same date+key basis so overlapping snapshots don't double-count. */
 function aggGA4(payload){
   if(!payload||!Array.isArray(payload.rows))return null;
-  var ch={},pg={};
+  var ch={},pg={},lp={};
   payload.rows.filter(function(r){return !isStub(r);}).forEach(function(r){
     (r.data.channels||[]).forEach(function(x){
       if(!x||!x.channel||!x.date)return;
       var k=x.date+"|"+x.channel, cur=ch[k];
       if(!cur||newer(r.pulled_at,cur.pulled_at))ch[k]={row:x,pulled_at:r.pulled_at};
+    });
+    /* landing_pages IS dated (landing_page × day), so it windows like channels: dedup by
+       date+page keeping the freshest pull, then sum over the range. */
+    (r.data.landing_pages||[]).forEach(function(x){
+      if(!x||!x.landing_page||!x.date)return;
+      var k=x.date+"|"+x.landing_page, cur=lp[k];
+      if(!cur||newer(r.pulled_at,cur.pulled_at))lp[k]={row:x,pulled_at:r.pulled_at};
     });
     /* top_pages carries no date field, so it is a snapshot-level rollup rather than
        a daily row. Summing across snapshots would inflate it — take the latest only. */
@@ -1364,8 +1416,12 @@ function aggGA4(payload){
   Object.keys(ch).forEach(function(k){var x=ch[k].row;chTot[x.channel]=(chTot[x.channel]||0)+(x.sessions||0);});
   var chArr=Object.keys(chTot).map(function(k){return {channel:k,sessions:chTot[k]};})
     .sort(function(a,b){return b.sessions-a.sessions;});
+  var lpTot={};
+  Object.keys(lp).forEach(function(k){var x=lp[k].row;var p=x.landing_page;var o=lpTot[p]||(lpTot[p]={sessions:0,engaged:0});o.sessions+=(x.sessions||0);o.engaged+=(x.engaged||0);});
+  var lpArr=Object.keys(lpTot).map(function(p){var o=lpTot[p];return {landing_page:p,sessions:o.sessions,engaged:o.engaged,er:o.sessions?Math.round(o.engaged/o.sessions*100):0};})
+    .sort(function(a,b){return b.sessions-a.sessions;});
   var pgArr=(pg._rows||[]).slice().sort(function(a,b){return (b.views||0)-(a.views||0);});
-  return {channels:chArr,top_pages:pgArr,pages_at:pg._at||null};
+  return {channels:chArr,top_pages:pgArr,landing_pages:lpArr,pages_at:pg._at||null};
 }
 
 /* Fetch the full stored history ONCE (WIDE); the backend caps it to what exists.

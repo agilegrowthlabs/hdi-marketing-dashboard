@@ -163,6 +163,24 @@ Preserve it. Restyle freely, but keep:
 - Channel bars (both tabs) show engaged rate as the bar, coloured lime when the channel clears
   the benchmark and sage when below — there is NO black benchmark tick mark on the bars (Verona
   Aug 17: "these black marks need to go"). Do not re-add the per-bar tick (`i[4]` in bars()).
+- Every channel chart is followed by `channelLegend(names)` — plain-language definitions of the
+  GA4 default channel groups (Direct / Organic Search / Unassigned / AI Assistant / …) plus what
+  `n` and the `%` mean (Henry Aug 17: the raw labels "have no context"). Keep the legend on any
+  channel chart. `CHANNEL_DEF` holds the definitions.
+- Page paths link to the live page via `pageLink(path)` → `SITE_URL + path` (SITE_URL =
+  https://hdi.com; change there if the domain moves). Used on Top pages, Landing pages, and Blog.
+  `pageLink` renders GA4 placeholders like "(not set)" as plain grey text, not broken links.
+- `bars()` accepts an optional `i[6]` = raw-HTML label (used for clickable page links); when
+  absent it falls back to `esc(i[0])`. Don't remove the `i[6]` branch.
+- The Website tab has a "Landing pages — what's bringing people in" card fed by
+  `HIST.ga4_agg.landing_pages` (aggregated in `aggGA4` from the dated `landing_pages` dimension —
+  sessions/engaged per entry page over the window, with engagement rate). This is the "what's
+  driving sessions" view (Henry Aug 17). "Top pages" shows most-viewed pages + `s/view` (avg
+  engaged seconds per view = performance). Keep both.
+- NOT in the feed yet (flagged in the channels card, needs a data-layer addition, NOT a display
+  fix): landing-page × channel cross-tab ("which pages each channel drives"), per-page traffic
+  source, and GSC keywords. Do not fabricate these — they require the data engine to pull the
+  extra GA4/GSC reports. The data engine is off-limits from this repo.
 - The Insights engagement-trend chart is "Engagement trend over time" with only a dashed
   regression trend line — no on-chart benchmark reference line (removed per Verona A4). Don't
   re-add a benchmark line or rename it "vs benchmark".
