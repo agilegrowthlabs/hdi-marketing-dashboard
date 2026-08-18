@@ -1,0 +1,43 @@
+{
+  "_note": "LinkedIn V1 manual upload. Replace this file with the next export; the dashboard reads it live. Numbers below are the LinkedIn analytics export for the stated period.",
+  "period": "Jul 18 – Aug 16, 2026",
+  "period_raw": "7/18/2026 – 8/16/2026",
+  "updated": "2026-08-18",
+  "profile": {
+    "impressions": {"value": 3240, "delta": 117.2},
+    "reactions":   {"value": 59,   "delta": 13.5},
+    "comments":    {"value": 12,   "delta": 140},
+    "reposts":     {"value": 9,    "delta": 0}
+  },
+  "followers": {
+    "total": 732,
+    "new_30d": {"value": 35, "delta": 59.1},
+    "auto_invited": {"value": 5, "delta": 0},
+    "search_appearances": {"value": 1544, "delta": 3.7, "window": "last 7 days"}
+  },
+  "engagers": [
+    {"name": "Bonnie Cassidy", "title": "Chief Operating Officer, Health Data Innovations", "action": "Reacted to your post: \"One day of Epic's UGM is complete, and it's been a great start…\""},
+    {"name": "Justin McNaughton", "title": "Partner @ CAS · Lawyer for fast-growing tech companies", "action": "Reacted to your post: \"No claims background and six months…\""}
+  ],
+  "posts": [
+    {"title": "One day of Epic's UGM is complete, and it's been a great start…", "by": "Becky Seefeldt", "date": "8/18/2026", "type": "Image",    "audience": "All followers", "impressions": 36,  "clicks": 1,   "ctr": 2.78,  "reactions": 1, "comments": 0, "reposts": 0, "er": 5.56},
+    {"title": "\"Our analytics team should be doing analytics, not translation.\"…", "by": "Becky Seefeldt", "date": "8/13/2026", "type": "Image",    "audience": "All followers", "impressions": 114, "clicks": 1,   "ctr": 0.88,  "reactions": 0, "comments": 0, "reposts": 0, "er": 0.88},
+    {"title": "We're excited to be at Epic's UGM next week…",                    "by": "Becky Seefeldt", "date": "8/12/2026", "type": "Image",    "audience": "All followers", "impressions": 206, "clicks": 6,   "ctr": 2.91,  "reactions": 5, "comments": 0, "reposts": 1, "er": 5.83},
+    {"title": "Confident decisions start with confident data. The HDI Advantage…", "by": "Becky Seefeldt", "date": "8/10/2026", "type": "Document", "audience": "All followers", "impressions": 320, "clicks": 149, "ctr": 46.56, "reactions": 5, "comments": 0, "reposts": 1, "er": 48.44},
+    {"title": "\"I would like to hire a professional.\" A technology leader…",       "by": "Becky Seefeldt", "date": "8/7/2026",  "type": "Image",    "audience": "All followers", "impressions": 206, "clicks": 7,   "ctr": 3.40,  "reactions": 7, "comments": 3, "reposts": 1, "er": 8.74},
+    {"title": "AI Ready Claims Data | Claims Data AI Readiness | HDI",              "by": "Becky Seefeldt", "date": "8/6/2026",  "type": "Article",  "audience": "All followers", "impressions": 438, "clicks": 12,  "ctr": 2.74,  "reactions": 3, "comments": 1, "reposts": 1, "er": 3.88},
+    {"title": "Would you trust a specialist who's only treated your condition a few times?…", "by": "Becky Seefeldt", "date": "8/4/2026", "type": "Document", "audience": "All followers", "impressions": 175, "clicks": 68, "ctr": 38.86, "reactions": 1, "comments": 0, "reposts": 2, "er": 40.57}
+  ],
+  "demographics_location": [
+    {"label": "Greater Cleveland", "value": 65, "pct": 8.9},
+    {"label": "Greater Chicago Area", "value": 48, "pct": 6.6},
+    {"label": "New York City Metropolitan Area", "value": 45, "pct": 6.1},
+    {"label": "Washington DC-Baltimore Area", "value": 33, "pct": 4.5},
+    {"label": "Greater Boston", "value": 31, "pct": 4.2},
+    {"label": "Greater Philadelphia", "value": 26, "pct": 3.6},
+    {"label": "Atlanta Metropolitan Area", "value": 22, "pct": 3.0},
+    {"label": "Dallas-Fort Worth Metroplex", "value": 16, "pct": 2.2},
+    {"label": "Kansas City Metropolitan Area", "value": 12, "pct": 1.6},
+    {"label": "Raleigh-Durham-Chapel Hill Area", "value": 11, "pct": 1.5}
+  ]
+}
