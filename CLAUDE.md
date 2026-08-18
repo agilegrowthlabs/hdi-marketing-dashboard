@@ -131,21 +131,29 @@ engaged with my content" (engager cards), and "Follower demographics · location
 - `shell()` marks `m.linkedin="live"` when `LI` is present, so the amber "LINKEDIN has never
   received an upload" banner does NOT fire while a manual upload exists. Keep that guard.
 - Numbers come only from `data/linkedin.json` — never hardcode LinkedIn metrics into index.html.
-- Daily trend lines (impressions/followers over time) are intentionally omitted — the summary
-  export carries no daily series. Don't fake them; add when a time-series export exists.
+- `data/linkedin.json` also carries the TREND SERIES (`trends.followers_monthly`,
+  `trends.engagement_monthly`, `trends.visitors_monthly` as `[label,value]` arrays), `post_types`
+  (engagement rate by content format), `qoq` (quarter-over-quarter), and `benchmark`. `linkedin()`
+  renders three `trend()` line charts (followers / engagement vs the 1–3% industry benchmark /
+  unique visitors), the engagement-by-content-type bars (best↔worst), the QoQ comparison, the
+  benchmark bars, and a leadership takeaway with a correlation-not-causation caveat — matching the
+  HDI LinkedIn exec deck. Keep all of these; they are what Henry required (Aug 18: "trend lines are
+  absolutely required … exactly like the powerpoint").
+- The trend series are reconstructed from the deck. When the raw LinkedIn time-series export
+  arrives, replace the `trends.*` arrays with exact daily/monthly values — no code change needed.
 - If the pipeline ever delivers a live LinkedIn feed, prefer `S.sources.linkedin`; until then `LI`.
 
 ## DO NOT REMOVE — THE BLOG TAB (load-bearing)
 Tab "Blog" (`data-t="blog"`, pane `#p-blog`), rendered by `blog()`, between Website and LinkedIn.
 Verona's dedicated thought-leadership view (Aug 17: "blog should have its own tab… top blog posts
-because we need to see which posts are gaining traction"). It reads `top_pages` (from `HIST.ga4_agg`
-when windowed, else the snapshot) and filters to paths starting `/blog/` — so it POPULATES
-AUTOMATICALLY once blog URLs move to `hdi.com/blog/[title]` (decided Aug 17; Meg + Adrian ship the
-permalink change + redirects). Until then: it shows the `/resources/` hub page views, POSTS TRACKED
-(count of `/blog/` pages, 0 today), an honest empty state naming the dependency, and — when present —
-an "Other content pages" interim proxy (top pages minus the main-nav `SITE` list). Keep the `/blog/`
-filter and the auto-populate wiring; do not hardcode post lists. Driven by the date filter via
-`winDesc()`/`HIST.ga4_agg`. `blog()` is called in `render()`.
+because we need to see which posts are gaining traction"). It ranks blog posts by sessions from the windowed
+`HIST.ga4_agg.landing_pages`. Blog posts now live at **`hdi.com/resources/[title]`** (Meg+Adrian
+shipped the permalink + redirects). `isBlogPath()` accepts BOTH `/resources/[slug]` and legacy
+root-level content slugs still in GA4 history, while excluding nav pages (`SITE` list), `.php`
+legacy pages, and `/category/` + `/tag/` archives. Shows POSTS WITH TRAFFIC / TOTAL BLOG SESSIONS /
+TOP POST / RESOURCES HUB VIEWS, a "Top blog posts" bar list and a "Lowest-traction posts" list,
+each post linked to its canonical `/resources/` URL via `blogLink()`. Driven by the date filter.
+Keep `isBlogPath` and the `/resources/` link normalisation. `blog()` is called in `render()`.
 
 ## DO NOT REMOVE — THE INSIGHTS TAB + BOT-FILTER TOGGLE (load-bearing)
 Second tab, "Insights" (`data-t="ins"`, pane `#p-ins`), rendered by `insights()`. It is the

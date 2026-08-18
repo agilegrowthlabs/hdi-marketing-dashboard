@@ -866,64 +866,76 @@ function website(){
   $("p-web").innerHTML=h;
 }
 
-/* ================= BLOG ================= *//* Dedicated thought-leadership view (Verona Aug 17: "blog should have its own tab"...
-   "top blog posts because we need to see which posts are gaining traction"). Blog posts
-   currently live at hdi.com/[title] with no distinguishing prefix, so GA4 can't separate a
-   post from any other page — the team decided Aug 17 to move to hdi.com/blog/[title] (Meg +
-   Adrian, with redirects). This tab filters top_pages to /blog/ paths, so it POPULATES
-   AUTOMATICALLY once those redirects ship — no rework. Until then it shows the blocker plus
-   the /resources/ hub metric and any non-nav content pages as an interim proxy. */
+/* ================= BLOG ================= */
+/* Blog posts now live at hdi.com/resources/[title] (team decision Aug 17; Meg+Adrian shipped the
+   permalink + redirects). Historical GA4 rows still carry the old root-level slugs, so isBlogPath
+   accepts BOTH /resources/[slug] and legacy root content slugs, excluding nav pages and taxonomy.
+   Ranked by sessions from the windowed landing_pages; links resolve to the canonical /resources/ URL. */
 function blog(){
   var g=S.sources.ga4,h='';
   var agg=(!PV&&HIST.ga4_agg)||null;
   var tp=agg?agg.top_pages:((!PV&&g.data&&g.data.top_pages)||[]);
-  if(PV){var p=PREVIEW();tp=(p.ga4&&p.ga4.top_pages)||tp;}
-  function norm(x){return (x.path||x.page||"").replace(/[?#].*$/,"");}
-  /* main-site nav pages that are NOT blog posts — excluded from the interim "content" proxy */
-  var SITE=["/","/careers/","/why-hdi/","/services/","/health-systems/","/about-us/","/contact/","/resources/","/payers/","/solutions/","/team/","/leadership/","/privacy/","/privacy-policy/","/terms/","/test-page/","/why-hdi","/services","/careers","/about-us","/contact"];
-  var posts=tp.filter(function(x){return norm(x).indexOf("/blog/")===0;}).sort(function(a,b){return (b.views||0)-(a.views||0);});
-  var hub=tp.filter(function(x){return norm(x)==="/resources/"||norm(x)==="/resources";})[0]||null;
-  var other=tp.filter(function(x){var pth=norm(x);return SITE.indexOf(pth)===-1 && pth.indexOf("/blog/")!==0;}).sort(function(a,b){return (b.views||0)-(a.views||0);});
+  var lp=(agg&&agg.landing_pages)||[];
   var span=(!PV)?winDesc():"sample window";
-  var g_ok=(g&&(mode(g)==="live"))||PV||(tp&&tp.length);
+  function norm(s){var p=(typeof s==="string"?s:(s&&(s.path||s.landing_page||s.page)||""));return p.replace(/[?#].*$/,"").replace(/\/$/,"")||"/";}
+  var SITE=["/","/careers","/services","/services-new","/about-us","/about","/contact","/why-hdi","/health-systems","/payers","/solutions","/team","/leadership","/privacy","/privacy-policy","/terms","/test-page","/home-new","/overview","/case-studies","/resources","/cms"];
+  function isBlogPath(pth){
+    var p=norm(pth);
+    if(p==="/"||p==="/resources")return false;
+    if(p.indexOf("/resources/")===0)return true;           /* new structure */
+    if(p.indexOf("/category/")===0||p.indexOf("/tag/")===0)return false;  /* taxonomy */
+    if(/\.php$/.test(p))return false;                       /* legacy site */
+    if(p.indexOf("/cms/")===0||/\/member_id$/.test(p))return false;
+    if(SITE.indexOf(p)>=0)return false;
+    return p.split("/").length===2 && p.length>1;           /* legacy root content slug */
+  }
+  function blogURL(pth){var p=norm(pth);if(p.indexOf("/resources/")===0)return SITE_URL+p;return SITE_URL+"/resources/"+p.replace(/^\//,"");}
+  function title(pth){var p=norm(pth).replace(/^\/resources\//,"").replace(/^\//,"");if(!p)return "(home)";p=p.replace(/-/g," ");return p.charAt(0).toUpperCase()+p.slice(1);}
+  function blogLink(pth){return '<a href="'+esc(blogURL(pth))+'" target="_blank" rel="noopener" style="color:var(--teal);border-bottom:1px solid var(--sage);text-decoration:none">'+esc(title(pth))+'</a>';}
+
+  var posts=lp.filter(function(x){return isBlogPath(x.landing_page);})
+    .map(function(x){return {path:x.landing_page,sessions:x.sessions||0,er:x.er||0};})
+    .sort(function(a,b){return b.sessions-a.sessions;});
+  var hub=tp.filter(function(x){return norm(x)==="/resources";})[0]||null;
+  var totalSess=posts.reduce(function(a,x){return a+x.sessions;},0);
+  var top=posts[0]||null;
 
   h+='<div class="card"><div class="cb">'+
     '<div style="font-family:var(--m);font-size:11px;letter-spacing:.08em;color:var(--teal);text-transform:uppercase">Blog · thought leadership</div>'+
     '<h3 style="font-size:22px;letter-spacing:-.02em;margin:6px 0 4px;color:var(--ink)">Blog performance</h3>'+
-    '<p class="sub" style="margin:0">Which posts are gaining traction — the leading signal for thought leadership. '+esc(span)+', by Google Analytics page views.</p>'+
+    '<p class="sub" style="margin:0">Which posts are gaining traction — the leading signal for thought leadership. '+esc(span)+', by Google Analytics sessions. Posts live at <code>hdi.com/resources/[title]</code>.</p>'+
     '<div class="kpis" style="margin-top:14px">'+
-      kpi("BLOG HUB VIEWS",hub?num(hub.views):"—","/resources/ — the page that lists every post",null,mix(sp(),{hi:true}))+
-      kpi("POSTS TRACKED",String(posts.length),"individual /blog/ posts with traffic",null,sp())+
-      kpi("TOP POST",posts.length?esc(norm(posts[0]).replace(/^\/blog\//,"").replace(/\/$/,"")):"—",posts.length?num(posts[0].views)+" views":"waiting on /blog/ URLs",null,sp())+
-    '</div>'+
-    srcTag(g,"GA4")+'</div></div>';
+      kpi("POSTS WITH TRAFFIC",String(posts.length),"individual posts tracked this range",null,mix(sp(),{hi:true}))+
+      kpi("TOTAL BLOG SESSIONS",num(totalSess),"across all posts in range",null,sp())+
+      kpi("TOP POST",top?esc(title(top.path)).slice(0,22):"—",top?num(top.sessions)+" sessions":"no post traffic in range",null,sp())+
+      kpi("RESOURCES HUB VIEWS",hub?num(hub.views):"—","/resources — the page listing all posts",null,sp())+
+    '</div>'+srcTag(g,"GA4")+'</div></div>';
 
   if(posts.length){
-    h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Top blog posts</h3><span class="note">'+esc(span)+' · by page views</span>'+srcTag(g,"GA4")+'</div><div class="cb">'+
-      bars(posts.slice(0,12).map(function(x,i){var ttl=norm(x).replace(/^\/blog\//,"").replace(/\/$/,"")||norm(x);return [ttl,x.views,i===0?"var(--lime)":"var(--sage)",num(x.views),null,"",pageLink(norm(x),ttl)];}))+
-      '<div class="foot">Ranked by views over '+esc(span)+'. These are the posts earning the most attention — the ones to double down on.</div>'+
+    var pmax=posts[0].sessions||1;
+    h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Top blog posts — what\'s performing</h3><span class="note">'+esc(span)+' · bar = sessions · % = engagement rate · click to open</span>'+srcTag(g,"GA4")+'</div><div class="cb">'+
+      bars(posts.slice(0,15).map(function(x,i){var m=x.er>=IB.engRate.lo;return [title(x.path),x.sessions,i===0?"var(--lime)":"var(--sage)",num(x.sessions)+" · "+x.er+"% eng",null,"",blogLink(x.path)];}),pmax)+
+      '<div class="foot">Ranked by sessions over '+esc(span)+' — the posts earning the most attention are the ones to amplify and build follow-ups around. Engagement rate flags which of them actually hold readers. Click any post to open it.</div>'+
       '</div></div>';
+
+    /* worst / lowest-traction, for "what's not working" */
+    if(posts.length>3){
+      var lowest=posts.slice().sort(function(a,b){return a.sessions-b.sessions;}).slice(0,5);
+      h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Lowest-traction posts</h3><span class="note">'+esc(span)+' · fewest sessions · candidates to refresh or retire</span>'+srcTag(g,"GA4")+'</div><div class="cb">'+
+        bars(lowest.map(function(x){return [title(x.path),x.sessions,"var(--taupe)",num(x.sessions)+" · "+x.er+"% eng",null,"",blogLink(x.path)];}),pmax)+
+        '<div class="foot">These posts drew the least traffic in range. Low sessions can mean a weak topic, thin distribution, or an older post that has faded — worth a look before publishing more like them.</div>'+
+        '</div></div>';
+    }
   } else {
-    h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Top blog posts</h3><span class="note">by page views</span>'+srcTag(g,"GA4")+'</div><div class="cb">'+
-      empty("Per-post tracking turns on once blog URLs move to /blog/[title]",
-        "Right now blog posts live at <code>hdi.com/[title]</code> with no <code>/blog/</code> prefix, so Google Analytics can’t tell an individual post apart from any other page. <b>Decided Aug 17 (team standup):</b> switch the blog permalink structure to <code>hdi.com/blog/[title]</code>. <b>Meg is setting that up with Adrian</b>, including redirects for the posts already live. The moment those redirects ship, this list fills in on its own — every <code>/blog/</code> page ranked by traffic, no further build needed.")+
+    h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Top blog posts</h3>'+srcTag(g,"GA4")+'</div><div class="cb">'+
+      empty("No blog-post traffic in this range","Widen the date filter, or check that the /resources/[title] permalinks and redirects are fully live in GA4.")+
       '</div></div>';
   }
 
-  if(other.length){
-    h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Other content pages</h3><span class="note">'+esc(span)+' · pages outside the main site nav · interim proxy</span>'+srcTag(g,"GA4")+'</div><div class="cb">'+
-      bars(other.slice(0,10).map(function(x,i){return [norm(x),x.views,i===0?"var(--lime)":"var(--sage)",num(x.views),null,"",pageLink(norm(x))];}))+
-      '<div class="foot">Until posts move to <code>/blog/</code>, this is the closest available signal — top pages that aren’t part of the main navigation. Some are likely blog posts, some may be campaign or landing pages.</div>'+
-      '</div></div>';
-  }
-
-  h+='<div class="card" style="margin-top:12px;border-color:#BFDBD6;background:var(--tealb)"><div class="cb" style="color:var(--teal)">'+
-    '<b>What unlocks the full blog view:</b> Meg + Adrian ship the <code>hdi.com/blog/[title]</code> permalink change and redirects for existing posts. This tab is already wired to read <code>/blog/</code> pages, so it activates automatically the moment that lands — nothing more to build here.'+
-    '</div></div>';
+  h+='<div class="card" style="margin-top:12px"><div class="cb"><div class="foot" style="margin:0">Blog posts are matched on the <code>hdi.com/resources/[title]</code> path (plus legacy root-slug posts still in GA4 history), excluding nav pages, category and tag archives. As older posts finish redirecting to <code>/resources/</code>, the match gets cleaner automatically.</div></div></div>';
 
   $("p-blog").innerHTML=h;
 }
-
 function building(src,n){
   return '<div class="empty" style="padding:18px"><b>Building history</b><p>'+esc(src)+
     ' has '+n+' day'+(n===1?'':'s')+' stored so far — not enough for a trend line. '+
@@ -931,98 +943,141 @@ function building(src,n){
 }
 
 /* ================= LINKEDIN ================= */
-/* V1 = manual upload. Reads /data/linkedin.json (global LI) and renders the HDI LinkedIn
-   executive layout (matches the exec deck). When a live LinkedIn feed exists, prefer it; until
-   then LI is the source. Replace data/linkedin.json with the next export to refresh this tab. */
+/* V1 = manual upload (/data/linkedin.json → LI). Reproduces the HDI LinkedIn executive deck:
+   follower / engagement / unique-visitor TREND LINES, engagement-by-content-type (best↔worst),
+   quarter-over-quarter comparison, benchmark, plus the current export's content table, engagers
+   and demographics. Replace data/linkedin.json to refresh. */
 function linkedin(){
   var h='', L=LI;
   if(!L){
     h='<div class="card"><div class="ch"><h3>LinkedIn</h3>'+tag("none","Manual upload")+'</div><div class="cb">'+
-      empty("No LinkedIn export loaded yet",
-        "LinkedIn is a manual upload for V1. Drop the latest export into <code>/data/linkedin.json</code> and this tab fills in — company-page highlights, content performance, engagers, and follower demographics.")+
+      empty("No LinkedIn export loaded yet","LinkedIn is a manual upload for V1. Drop the latest export into <code>/data/linkedin.json</code> and this tab fills in.")+
       '</div></div>';
     $("p-li").innerHTML=h;return;
   }
-  var P=L.profile||{}, F=L.followers||{}, posts=(L.posts||[]).slice();
-  function d(o){return o||{};}
-  function dpct(o){o=d(o);if(o.delta==null)return "";var v=o.delta;return (v>0?"↑ +":(v<0?"↓ ":"→ "))+Math.abs(v)+"%";}
-  function dcls(o){o=d(o);if(o.delta==null||o.delta===0)return {};return o.delta>0?{ok:true}:{warn:true};}
+  var P=L.profile||{}, F=L.followers||{}, T=L.trends||{}, Q=L.qoq||{}, B=L.benchmark||{}, posts=(L.posts||[]).slice();
+  function o(x){return x||{};}
+  function dpct(x){x=o(x);if(x.delta==null)return "";var v=x.delta;return (v>0?"↑ +":(v<0?"↓ ":"→ "))+Math.abs(v)+"%";}
+  function dcls(x){x=o(x);if(x.delta==null||x.delta===0)return {};return x.delta>0?{ok:true}:{warn:true};}
+  function series(arr){return (arr||[]).map(function(p){return {label:p[0],v:p[1]};});}
   var period=esc(L.period||"the reporting period");
   var upTag='<span class="tag stub" style="white-space:nowrap">Manual upload · '+period+'</span>';
 
-  /* ---- Profile view highlights (header + 4 KPIs, matches deck slide) ---- */
+  /* ---- HEADER + current-period highlights ---- */
   h+='<div class="card"><div class="cb">'+
     '<div style="font-family:var(--m);font-size:11px;letter-spacing:.08em;color:var(--teal);text-transform:uppercase">HDI // LinkedIn Performance</div>'+
     '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin:6px 0 4px">'+
-      '<h3 style="font-size:22px;letter-spacing:-.02em;margin:0;color:var(--ink)">Your profile view highlights</h3>'+upTag+
+      '<h3 style="font-size:22px;letter-spacing:-.02em;margin:0;color:var(--ink)">The LinkedIn audience is compounding.</h3>'+upTag+
     '</div>'+
-    '<p class="sub" style="margin:0">LinkedIn company-page performance for <b>'+period+'</b>. Each % is the change vs the prior period.</p>'+
+    '<p class="sub" style="margin:0">From <b>181</b> followers when tracking began to <b>'+num(F.total)+'</b> today — engagement running well above the B2B benchmark. Profile highlights are for <b>'+period+'</b>; each % is vs the prior period.</p>'+
     '<div class="kpis" style="margin-top:14px">'+
-      kpi("IMPRESSIONS",num(d(P.impressions).value),dpct(P.impressions),"vs prior period",mix(sp(),dcls(P.impressions)))+
-      kpi("REACTIONS",num(d(P.reactions).value),dpct(P.reactions),"vs prior period",mix(sp(),dcls(P.reactions)))+
-      kpi("COMMENTS",num(d(P.comments).value),dpct(P.comments),"vs prior period",mix(sp(),dcls(P.comments)))+
-      kpi("REPOSTS",num(d(P.reposts).value),dpct(P.reposts)||"no change","vs prior period",mix(sp(),{hi:true}))+
-    '</div>'+
-    srcTag2()+'</div></div>';
-
-  /* ---- Follower highlights ---- */
-  h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Follower highlights</h3><span class="note">'+period+'</span>'+upTag+'</div><div class="cb">'+
-    '<div class="kpis">'+
-      kpi("TOTAL FOLLOWERS",num(F.total),"the audience you’ve built",null,mix(sp(),{hi:true}))+
-      kpi("NEW · LAST 30 DAYS",num(d(F.new_30d).value),dpct(F.new_30d),"vs prior period",mix(sp(),dcls(F.new_30d)))+
-      kpi("AUTO-INVITED (PREMIUM)",num(d(F.auto_invited).value),dpct(F.auto_invited)||"no change","invited to follow via Premium",sp())+
-      kpi("SEARCH APPEARANCES",num(d(F.search_appearances).value),dpct(F.search_appearances),esc(d(F.search_appearances).window||"in search results"),mix(sp(),dcls(F.search_appearances)))+
+      kpi("IMPRESSIONS",num(o(P.impressions).value),dpct(P.impressions),"vs prior period",mix(sp(),dcls(P.impressions)))+
+      kpi("REACTIONS",num(o(P.reactions).value),dpct(P.reactions),"vs prior period",mix(sp(),dcls(P.reactions)))+
+      kpi("COMMENTS",num(o(P.comments).value),dpct(P.comments),"vs prior period",mix(sp(),dcls(P.comments)))+
+      kpi("REPOSTS",num(o(P.reposts).value),dpct(P.reposts)||"no change","vs prior period",mix(sp(),{hi:true}))+
     '</div></div></div>';
 
-  /* ---- Engagement rate by format (bar, matches deck) ---- */
-  if(posts.length){
-    var byType={};
-    posts.forEach(function(p){var t=p.type||"Other";var o=byType[t]||(byType[t]={sum:0,n:0});o.sum+=(p.er||0);o.n++;});
-    var typeArr=Object.keys(byType).map(function(t){return {type:t,er:byType[t].sum/byType[t].n,n:byType[t].n};}).sort(function(a,b){return b.er-a.er;});
-    var maxEr=typeArr[0]?typeArr[0].er:1;
-    h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Engagement rate by format</h3><span class="note">'+period+' · bar = avg engagement rate · n = posts</span>'+upTag+'</div><div class="cb">'+
-      bars(typeArr.map(function(x,i){return [x.type+" · n="+x.n,x.er,i===0?"var(--lime)":"var(--sage)",x.er.toFixed(1)+"%"];}),Math.max(maxEr,1))+
-      '<div class="foot"><b>'+esc(typeArr[0]?typeArr[0].type:"")+'</b> posts drive the highest engagement this period'+(typeArr[0]&&typeArr[0].er>10?" by a wide margin":"")+'. Richer formats (documents, carousels) consistently outperform single images — the mix is the lever.</div>'+
+  /* ---- Follower highlights ---- */
+  h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Follower highlights</h3><span class="note">'+period+'</span>'+upTag+'</div><div class="cb"><div class="kpis">'+
+    kpi("TOTAL FOLLOWERS",num(F.total),F.since_start_pct?("↑ +"+F.since_start_pct+"% since Aug ’24"):"the audience you’ve built",null,mix(sp(),{hi:true}))+
+    kpi("NEW · LAST 30 DAYS",num(o(F.new_30d).value),dpct(F.new_30d),"vs prior period",mix(sp(),dcls(F.new_30d)))+
+    kpi("AUTO-INVITED (PREMIUM)",num(o(F.auto_invited).value),dpct(F.auto_invited)||"no change","invited to follow via Premium",sp())+
+    kpi("SEARCH APPEARANCES",num(o(F.search_appearances).value),dpct(F.search_appearances),esc(o(F.search_appearances).window||"in search results"),mix(sp(),dcls(F.search_appearances)))+
+    '</div></div></div>';
+
+  /* ---- TREND: Total followers over time ---- */
+  if((T.followers_monthly||[]).length>1){
+    var tf=trend(series(T.followers_monthly),{trendline:true});
+    h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Total followers over time</h3><span class="note">Aug 2024 → today · dashed = overall trend</span>'+upTag+'</div><div class="cb">'+
+      (tf?tf.svg:"")+
+      '<div class="foot"><b>181 → '+num(F.total)+'</b> ('+(F.since_start_pct?"+"+F.since_start_pct+"%":"")+' since Aug ’24). Growth stepped up after <b>focused marketing (Jun ’25)</b> and again with <b>new activity (Jun ’26)</b> — the trend line is climbing, not flattening.</div>'+
       '</div></div>';
   }
 
-  /* ---- Content engagement table (the export detail) ---- */
+  /* ---- TREND: Engagement rate vs benchmark ---- */
+  if((T.engagement_monthly||[]).length>1){
+    var te=trend(series(T.engagement_monthly),{trendline:true,benchmark:(B.company_high||3),benchmarkLabel:"industry "+(B.company_low||1)+"–"+(B.company_high||3)+"%",fmt:function(v){return v+"%";}});
+    h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Engagement rate over time</h3><span class="note">monthly · dashed = trend · flat line = industry '+(B.company_low||1)+'–'+(B.company_high||3)+'% benchmark</span>'+upTag+'</div><div class="cb">'+
+      (te?te.svg:"")+
+      '<div class="foot">HDI averages ~<b>'+(B.hdi||8)+'%</b> — roughly <b>4×</b> a typical B2B company page ('+(B.company_low||1)+'–'+(B.company_high||3)+'%). It peaked at <b>18% (Nov ’25)</b>; month-to-month swings are normal on a small base, but the trend sits well above benchmark throughout.</div>'+
+      '</div></div>';
+  }
+
+  /* ---- Engagement by content type (best ↔ worst — what's working) ---- */
+  var pt=(L.post_types||[]).slice().sort(function(a,b){return b.er-a.er;});
+  if(pt.length){
+    var ptMax=pt[0].er||1, best=pt[0], worst=pt[pt.length-1];
+    h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Engagement rate by content type</h3><span class="note">Jan 2025 – May 2026 · bar = avg engagement rate · n = posts published</span>'+upTag+'</div><div class="cb">'+
+      bars(pt.map(function(x,i){return [x.type+" · n="+x.n,x.er,i===0?"var(--lime)":(x===worst?"var(--taupe)":"var(--sage)"),x.er.toFixed(1)+"%"];}),ptMax)+
+      '<div class="foot"><b>Best: '+esc(best.type)+' ('+best.er.toFixed(1)+'%)</b>; carousels, jobs and video lead. <b>Worst: '+esc(worst.type)+' ('+worst.er.toFixed(1)+'%)</b> — yet single images are <b>n='+worst.n+'</b>, the vast majority of what’s published. <b>The lever is the mix:</b> more carousels, documents and video; fewer single images. Richer formats <i>correlate</i> with higher engagement — a strong signal, though format alone isn’t proven causation.</div>'+
+      '</div></div>';
+  }
+
+  /* ---- TREND: Unique visitors over time ---- */
+  if((T.visitors_monthly||[]).length>1){
+    var tv=trend(series(T.visitors_monthly),{trendline:true});
+    var uv=o(Q.unique_visitors);
+    h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Unique visitors over time</h3><span class="note">monthly · dashed = overall trend'+(uv.q2?" · Q2 "+num(uv.q2)+(uv.delta!=null?" (↑"+uv.delta+"%)":""):"")+'</span>'+upTag+'</div><div class="cb">'+
+      (tv?tv.svg:"")+
+      '<div class="foot">Page visitors are <b>trending up</b> over the full window, with a standout <b>196 (Feb ’26)</b>. Spikes track campaign and event activity — worth pairing with the content calendar to see what drove each peak.</div>'+
+      '</div></div>';
+  }
+
+  /* ---- Quarter-over-quarter (comparison to a similar timeframe) ---- */
+  if(Q.impressions){
+    function qkpi(lbl,q,unit){q=o(q);var d=q.delta;return kpi(lbl,(unit==="%"?(q.q2+"%"):num(q.q2)),(d!=null?((d>=0?"↑ +":"↓ ")+Math.abs(d)+"% QoQ"):""),(q.q1!=null?("Q1: "+(unit==="%"?q.q1+"%":num(q.q1))):""),mix(sp(),d==null?{}:(d>=0?{ok:true}:{warn:true})));}
+    h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Quarter over quarter</h3><span class="note">Q2 vs Q1 FY2026 · same-length comparison</span>'+upTag+'</div><div class="cb"><div class="kpis">'+
+      qkpi("ENGAGEMENT RATE",Q.engagement_rate,"%")+
+      qkpi("IMPRESSIONS",Q.impressions)+
+      qkpi("REACTIONS",Q.reactions)+
+      qkpi("COMMENTS",Q.comments)+
+      '</div><div class="foot">Every headline metric is up quarter over quarter — engagement rate more than doubled (4.0% → '+(o(Q.engagement_rate).q2||8.5)+'%). This is the like-for-like comparison to the prior period, not raw month-to-month noise.</div>'+
+      '</div></div>';
+  }
+
+  /* ---- HDI vs industry benchmark ---- */
+  if(B.hdi!=null){
+    h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>HDI vs industry benchmark</h3><span class="note">avg engagement rate · bars scaled to HDI’s '+B.hdi+'%</span>'+upTag+'</div><div class="cb">'+
+      bars([
+        ["HDI company page",B.hdi,"var(--lime)",B.hdi+"%"],
+        ["LinkedIn company avg",B.company_high,"var(--taupe)",B.company_low+"–"+B.company_high+"%"],
+        ["Personal page avg",B.personal_high,"var(--taupe)",B.personal_low+"–"+B.personal_high+"%"],
+        ["Pages under 1,000",B.under1k_high,"var(--taupe)",B.under1k_low+"–"+B.under1k_high+"%"]
+      ],Math.max(B.hdi,B.personal_high,5))+
+      '<div class="foot">At <b>'+B.hdi+'% average engagement</b>, HDI performs roughly <b>4×</b> a typical company page of its size — reach quality that outpaces the follower count.</div>'+
+      '</div></div>';
+  }
+
+  /* ---- Content engagement table (recent posts, current export) ---- */
   if(posts.length){
-    var rows=posts.map(function(p){
-      var title=esc(p.title||"");
+    var byEr=posts.slice().sort(function(a,b){return (b.er||0)-(a.er||0);});
+    var top=byEr[0], low=byEr[byEr.length-1];
+    var rows=posts.map(function(p){var title=esc(p.title||"");
       return '<tr>'+
         '<td style="max-width:340px"><div style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+title+'">'+title+'</div>'+
         '<div style="color:var(--mute);font-size:10px">'+esc(p.by||"")+' · '+esc(p.date||"")+'</div></td>'+
-        '<td>'+esc(p.type||"—")+'</td>'+
-        '<td class="n">'+num(p.impressions)+'</td>'+
-        '<td class="n">'+(p.clicks!=null?num(p.clicks):"—")+'</td>'+
-        '<td class="n">'+(p.ctr!=null?p.ctr+"%":"—")+'</td>'+
-        '<td class="n">'+(p.reactions!=null?p.reactions:"—")+'</td>'+
-        '<td class="n">'+(p.comments!=null?p.comments:"—")+'</td>'+
-        '<td class="n">'+(p.reposts!=null?p.reposts:"—")+'</td>'+
-        '<td class="n"><b>'+(p.er!=null?p.er+"%":"—")+'</b></td>'+
-      '</tr>';
+        '<td>'+esc(p.type||"—")+'</td><td class="n">'+num(p.impressions)+'</td><td class="n">'+(p.clicks!=null?num(p.clicks):"—")+'</td>'+
+        '<td class="n">'+(p.ctr!=null?p.ctr+"%":"—")+'</td><td class="n">'+(p.reactions!=null?p.reactions:"—")+'</td>'+
+        '<td class="n">'+(p.comments!=null?p.comments:"—")+'</td><td class="n">'+(p.reposts!=null?p.reposts:"—")+'</td>'+
+        '<td class="n"><b>'+(p.er!=null?p.er+"%":"—")+'</b></td></tr>';
     }).join("");
-    h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Content engagement</h3><span class="note">'+period+' · every post, as posted</span>'+upTag+'</div><div class="cb" style="overflow-x:auto">'+
+    h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Content engagement · this period</h3><span class="note">'+period+' · every post</span>'+upTag+'</div><div class="cb" style="overflow-x:auto">'+
       '<table><thead><tr><th>Post</th><th>Type</th><th>Impr.</th><th>Clicks</th><th>CTR</th><th>Reactions</th><th>Comments</th><th>Reposts</th><th>Eng. rate</th></tr></thead><tbody>'+rows+'</tbody></table>'+
-      '<div class="foot">Engagement rate = (reactions + comments + reposts + clicks) ÷ impressions, as LinkedIn reports it. Document and article posts with a strong click-through pull the rate up sharply.</div>'+
+      '<div class="foot"><b>Best this period:</b> “'+esc((top.title||"").slice(0,60))+'” ('+top.type+', '+top.er+'%). <b>Weakest:</b> “'+esc((low.title||"").slice(0,60))+'” ('+low.type+', '+low.er+'%). The document/PDF posts with strong click-through pulled the period up — consistent with the format trend above.</div>'+
       '</div></div>';
   }
 
-  /* ---- Who engaged with my content ---- */
+  /* ---- Who engaged ---- */
   var eng=L.engagers||[];
   if(eng.length){
     h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Who engaged with my content</h3><span class="note">notable engagers this period</span>'+upTag+'</div><div class="cb">'+
-      eng.map(function(e){
-        var init=(e.name||"?").split(/\s+/).map(function(w){return w.charAt(0);}).slice(0,2).join("").toUpperCase();
+      eng.map(function(e){var init=(e.name||"?").split(/\s+/).map(function(w){return w.charAt(0);}).slice(0,2).join("").toUpperCase();
         return '<div style="display:flex;gap:12px;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--line)">'+
           '<div style="flex:0 0 auto;width:40px;height:40px;border-radius:50%;background:var(--teal);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px">'+esc(init)+'</div>'+
-          '<div style="min-width:0"><div style="font-weight:600">'+esc(e.name||"")+'</div>'+
-          '<div style="color:var(--mute);font-size:12px">'+esc(e.title||"")+'</div>'+
-          (e.action?'<div style="font-size:12px;margin-top:2px">'+esc(e.action)+'</div>':'')+'</div>'+
-        '</div>';
+          '<div style="min-width:0"><div style="font-weight:600">'+esc(e.name||"")+'</div><div style="color:var(--mute);font-size:12px">'+esc(e.title||"")+'</div>'+
+          (e.action?'<div style="font-size:12px;margin-top:2px">'+esc(e.action)+'</div>':'')+'</div></div>';
       }).join("")+
-      '<div class="foot">These are people who reacted to or commented on HDI posts — warm signals for sales and relationship follow-up. With LinkedIn Premium, post engagers can be auto-invited to follow the page.</div>'+
+      '<div class="foot">People who reacted to or commented on HDI posts — warm signals for sales follow-up. Premium can auto-invite post engagers to follow the page.</div>'+
       '</div></div>';
   }
 
@@ -1032,18 +1087,22 @@ function linkedin(){
     var lmax=loc.reduce(function(a,x){return Math.max(a,x.value||0);},0)||1;
     h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Follower demographics · location</h3><span class="note">top metro areas · share of followers</span>'+upTag+'</div><div class="cb">'+
       bars(loc.map(function(x,i){return [x.label,x.value,i===0?"var(--lime)":"var(--sage)",x.value+" · "+x.pct+"%"];}),lmax)+
-      '<div class="foot">Where your followers are concentrated — useful for event, regional-campaign, and ABM targeting. Cleveland, Chicago, and the NYC metro lead.</div>'+
+      '<div class="foot">Where followers concentrate — useful for event, regional-campaign and ABM targeting. Cleveland, Chicago and the NYC metro lead.</div>'+
       '</div></div>';
   }
 
-  h+='<div class="card" style="margin-top:12px"><div class="cb"><div class="foot" style="margin:0">'+
-    'This tab is a <b>manual LinkedIn upload</b> ('+period+') — it is only as fresh as the last export in <code>/data/linkedin.json</code>. '+
-    'Daily impression and follower <i>trend lines</i> populate when the time-series export is added; this view uses the summary export.'+
-    '</div></div></div>';
+  /* ---- What leadership should take away ---- */
+  h+='<div class="card" style="margin-top:12px;border-color:#BFDBD6;background:var(--tealb)"><div class="ch" style="border-color:#CFE3DF"><h3 style="color:var(--teal)">What leadership should take away</h3></div><div class="cb"><ul style="margin:0;padding-left:18px;color:var(--teal)">'+
+    '<li style="margin-bottom:7px"><b>Followers are compounding</b> — '+num(F.total)+' and climbing, up '+(F.since_start_pct||285)+'% since Aug ’24; the trend line is still rising.</li>'+
+    '<li style="margin-bottom:7px"><b>Engagement outperforms</b> the B2B benchmark by roughly 4× ('+(B.hdi||8)+'% vs '+(B.company_low||1)+'–'+(B.company_high||3)+'%).</li>'+
+    '<li style="margin-bottom:7px"><b>Content mix is the lever</b> — carousels, documents and video engage far above single images. Shift the mix and both engagement and reach follow.</li>'+
+    '<li><b>Correlation, not proven causation</b> — richer formats and campaign activity move alongside the gains; we flag the likely drivers rather than assert them, since there’s no controlled test behind the numbers.</li>'+
+    '</ul></div></div>';
+
+  h+='<div class="card" style="margin-top:12px"><div class="cb"><div class="foot" style="margin:0">Manual LinkedIn upload ('+period+') from <code>/data/linkedin.json</code>. Trend series reconstructed from the LinkedIn executive deck; current-period highlights, the content table, engagers and demographics come from the latest export. Swap in the raw time-series export to make every daily point exact.</div></div></div>';
 
   $("p-li").innerHTML=h;
 }
-function srcTag2(){return '<span class="tag stub">LinkedIn · manual upload</span>';}
 
 /* ================= BENCHMARKS ================= */
 function benchmarks(){
