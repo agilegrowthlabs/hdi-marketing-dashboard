@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How to Use the HDI Marketing Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --teal:#0F5C56; --tealb:#E7F0EE; --lime:#C3D82B; --sage:#8ECAC4; --taupe:#A89C8E;
+  --ink:#1C2321; --mute:#6B746F; --line:#E3E1D8; --paper:#F4F3EE; --card:#FFFFFF;
+  --ok:#2E7D5B; --warn:#C0492E; --amb:#B7791F;
+  --f:'Archivo',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  --m:'IBM Plex Mono',ui-monospace,'SF Mono',Menlo,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--f);color:var(--ink);background:var(--paper);line-height:1.55;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1000px;margin:0 auto;padding:34px 24px 60px}
+.mono{font-family:var(--m)}
+.eyebrow{font-family:var(--m);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);font-weight:600}
+h1{font-size:36px;line-height:1.06;letter-spacing:-.02em;font-weight:800;margin:6px 0 8px}
+h2{font-size:14px;font-family:var(--m);letter-spacing:.07em;text-transform:uppercase;color:var(--teal);font-weight:600;margin:0 0 12px}
+.lede{font-size:17px;color:var(--mute);max-width:720px}
+.sec{margin-top:36px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px 22px}
+.card+.card{margin-top:14px}
+.big{font-size:19px;font-weight:700}
+.grid{display:grid;gap:14px}
+.g2{grid-template-columns:1fr 1fr}
+@media(max-width:720px){.g2{grid-template-columns:1fr}}
+b{font-weight:700}
+.note{font-size:12.5px;color:var(--mute)}
+
+/* intro band */
+.band{background:var(--teal);color:#fff;border-radius:16px;padding:24px 26px}
+.band .big{font-size:20px}
+.band p{opacity:.92;margin-top:8px;font-size:15.5px;max-width:720px}
+
+/* screen anatomy mock */
+.mock{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:14px 14px 16px;position:relative;overflow:hidden}
+.mrow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:9px}
+.mlogo{font-family:var(--m);font-weight:700;font-size:11px;letter-spacing:.08em;color:var(--teal)}
+.mpill{font-family:var(--m);font-size:9.5px;letter-spacing:.06em;padding:3px 8px;border:1px solid var(--line);border-radius:20px;background:#fff;color:var(--mute)}
+.mseg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:#fff}
+.mseg span{font-family:var(--m);font-size:10px;padding:5px 9px;color:var(--mute);border-right:1px solid var(--line)}
+.mseg span:last-child{border:0}
+.mseg span.on{background:var(--teal);color:#fff}
+.mdate{font-family:var(--m);font-size:10px;color:var(--mute);border:1px solid var(--line);border-radius:7px;padding:5px 9px;background:#fff}
+.mtog{font-family:var(--m);font-size:9.5px;letter-spacing:.04em;color:var(--mute);border:1px solid var(--line);border-radius:20px;padding:4px 10px;background:#fff}
+.mtabs{display:flex;gap:5px;background:#fff;border:1px solid var(--line);border-radius:9px;padding:5px;margin:6px 0}
+.mtab{font-size:12px;font-weight:600;padding:6px 11px;border-radius:6px;color:var(--ink)}
+.mtab.on{background:var(--teal);color:#fff}
+.mcard{background:#fff;border:1px solid var(--line);border-radius:9px;padding:10px 12px;margin-top:6px;display:flex;justify-content:space-between;align-items:center}
+.mcard .t{font-family:var(--m);font-size:9px;letter-spacing:.06em;color:var(--mute)}
+.mcard .big2{font-family:var(--m);font-weight:600;font-size:16px;color:var(--teal)}
+.mtag{font-family:var(--m);font-size:8.5px;letter-spacing:.05em;padding:3px 7px;border-radius:20px;background:var(--tealb);color:var(--teal)}
+.pin{position:absolute;width:22px;height:22px;border-radius:50%;background:var(--lime);color:var(--teal);font-family:var(--m);font-weight:700;font-size:12px;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,.18);border:2px solid #fff}
+.keys{margin-top:16px;display:grid;grid-template-columns:1fr 1fr;gap:10px 22px}
+@media(max-width:720px){.keys{grid-template-columns:1fr}}
+.key{display:flex;gap:11px;align-items:flex-start;font-size:14px}
+.knum{width:22px;height:22px;border-radius:50%;background:var(--lime);color:var(--teal);font-family:var(--m);font-weight:700;font-size:12px;display:flex;align-items:center;justify-content:center;flex:0 0 auto;margin-top:1px}
+.key .kt b{display:block}
+.key .kt span{color:var(--mute);font-size:13px}
+
+/* tab list */
+.tabrow{display:flex;gap:13px;align-items:flex-start;padding:14px 0;border-bottom:1px solid var(--line)}
+.tabrow:last-child{border-bottom:0}
+.chip{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-family:var(--m);font-weight:700;font-size:15px;color:#fff;flex:0 0 auto}
+.tabrow h3{font-size:17px;margin:0 0 1px}
+.tabrow .q{font-size:14px;color:var(--teal);font-weight:600}
+.tabrow .w{font-size:13.5px;color:var(--mute);margin-top:3px}
+
+/* glossary */
+.gloss{display:grid;grid-template-columns:1fr 1fr;gap:2px 26px}
+@media(max-width:720px){.gloss{grid-template-columns:1fr}}
+.term{padding:9px 0;border-bottom:1px solid var(--line);font-size:14px}
+.term b{color:var(--teal)}
+.term span{color:var(--mute)}
+
+/* read numbers */
+.reads{display:grid;grid-template-columns:1fr 1fr;gap:10px 20px}
+@media(max-width:600px){.reads{grid-template-columns:1fr}}
+.read{display:flex;gap:11px;align-items:flex-start;font-size:14px;padding:5px 0}
+.badge{font-family:var(--m);font-weight:700;font-size:13px;padding:3px 8px;border-radius:7px;flex:0 0 auto;min-width:44px;text-align:center}
+
+/* steps */
+.steps{counter-reset:s;list-style:none}
+.steps li{position:relative;padding:10px 0 10px 44px;font-size:15px;border-bottom:1px dashed var(--line)}
+.steps li:last-child{border:0}
+.steps li:before{counter-increment:s;content:counter(s);position:absolute;left:0;top:9px;width:28px;height:28px;border-radius:50%;background:var(--teal);color:#fff;font-family:var(--m);font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center}
+.foot{font-size:12.5px;color:var(--mute);margin-top:12px;padding-top:12px;border-top:1px dashed var(--line)}
+@page{margin:12mm}
+@media print{
+  body{background:#fff}
+  .wrap{padding:0;max-width:none}
+  .card,.band,.mock,.tabrow,.key,.read,.term,.steps li{break-inside:avoid}
+  h1{font-size:32px}
+  a{color:inherit;text-decoration:none}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="eyebrow">HDI // Marketing Dashboard</div>
+  <h1>How to use the dashboard.</h1>
+  <p class="lede">A plain-English guide for anyone — no marketing background needed. It shows you what this screen is, how to move around it, and what every word means. If you’ve never seen a dashboard like this, start here.</p>
+
+  <!-- WHAT IS THIS -->
+  <div class="sec">
+    <div class="band">
+      <div class="big">What is this?</div>
+      <p>It’s one screen that shows how HDI’s marketing and sales are doing — visitors to the website, posts on LinkedIn, blog articles, and the sales pipeline — all in one place, updated automatically from HDI’s real systems. <b>You don’t enter anything.</b> You just open it and read. Think of it like the dashboard in a car: a set of dials that tell you, at a glance, how things are running.</p>
+    </div>
+  </div>
+
+  <!-- ANATOMY OF THE SCREEN -->
+  <div class="sec">
+    <h2>1 · Getting your bearings — the parts of the screen</h2>
+    <div class="card">
+      <div class="big" style="margin-bottom:4px">Everything you control lives at the top.</div>
+      <p class="note" style="margin-bottom:14px">Here’s a simplified picture of the top of the dashboard. The four numbered dots point to the only parts you ever need to touch.</p>
+
+      <div class="mock">
+        <div class="mrow">
+          <span class="mlogo">HDI // MARKETING PERFORMANCE</span>
+          <span style="flex:1"></span>
+          <span class="mpill">● BUILT 6H AGO</span>
+          <span class="mpill">● 4/4 LIVE</span>
+          <span class="mseg"><span>7D</span><span class="on">30D</span><span>90D</span><span>ALL</span></span>
+        </div>
+        <div class="mrow">
+          <span class="mdate">FROM 07/20/2026</span>
+          <span class="mdate">TO 08/18/2026</span>
+          <span class="mpill" style="background:var(--teal);color:#fff;border-color:var(--teal)">APPLY</span>
+          <span style="flex:1"></span>
+          <span class="mtog">◯ INCLUDE BOTS</span>
+          <span class="mtog">◯ PREVIEW LAYOUT</span>
+        </div>
+        <div class="mtabs">
+          <span class="mtab on">Board</span><span class="mtab">Insights</span><span class="mtab">Website</span><span class="mtab">Blog</span><span class="mtab">LinkedIn</span><span class="mtab">Benchmarks</span>
+        </div>
+        <div class="mcard">
+          <div><div class="t">WEBSITE SESSIONS</div><div class="big2">1,736</div></div>
+          <span class="mtag">GA4 LIVE · 6H AGO</span>
+        </div>
+        <!-- pins -->
+        <div class="pin" style="top:64px;left:50%">2</div>
+        <div class="pin" style="top:10px;right:64px">3</div>
+        <div class="pin" style="top:112px;left:16px">1</div>
+        <div class="pin" style="bottom:14px;right:14px">4</div>
+      </div>
+
+      <div class="keys">
+        <div class="key"><span class="knum">1</span><div class="kt"><b>The tabs</b><span>Six buttons. Click one to switch views. The five that matter: Board, Insights, Website, Blog, LinkedIn.</span></div></div>
+        <div class="key"><span class="knum">2</span><div class="kt"><b>The time window</b><span>Click <b>7D / 30D / 90D / All</b>, or pick your own <b>From–To</b> dates and press <b>Apply</b>. The whole screen updates to that period.</span></div></div>
+        <div class="key"><span class="knum">3</span><div class="kt"><b>The switches</b><span>“Include bots” and “Preview layout” are for the team — <b>you can ignore both.</b> Leave them off.</span></div></div>
+        <div class="key"><span class="knum">4</span><div class="kt"><b>The little source tags</b><span>Labels like “GA4 live” or “Clarity live” just say <b>where a number came from and that it’s fresh</b>. You don’t need to know those tools — the tag is a freshness stamp.</span></div></div>
+      </div>
+      <div class="foot"><b>Good to know:</b> a green <b>“4/4 live”</b> at the top means all data sources are current. And a dash <b>“—”</b> anywhere means “no data yet,” <b>never</b> a zero — the dashboard never guesses or makes numbers up.</div>
+    </div>
+  </div>
+
+  <!-- THE FIVE TABS -->
+  <div class="sec">
+    <h2>2 · The five tabs — what each one is for</h2>
+    <div class="card">
+      <div class="tabrow">
+        <div class="chip" style="background:var(--teal)">B</div>
+        <div><h3>Board</h3><div class="q">“How is the business doing?”</div><div class="w">The money view for leadership — how much is in the sales pipeline, how much revenue has been won, and what’s blocking marketing from getting credit for deals.</div></div>
+      </div>
+      <div class="tabrow">
+        <div class="chip" style="background:var(--lime);color:var(--teal)">I</div>
+        <div><h3>Insights</h3><div class="q">“What do the website numbers mean?”</div><div class="w">The plain-English summary of the website — is traffic growing, how does it compare to the industry, and what’s driving results. Start here if you want the story, not the detail.</div></div>
+      </div>
+      <div class="tabrow">
+        <div class="chip" style="background:var(--sage);color:var(--teal)">W</div>
+        <div><h3>Website</h3><div class="q">“Who’s visiting and what do they do?”</div><div class="w">The detailed website view — how many people visit, where they come from, which pages they land on, and whether those pages hold their attention.</div></div>
+      </div>
+      <div class="tabrow">
+        <div class="chip" style="background:var(--taupe)">Bl</div>
+        <div><h3>Blog</h3><div class="q">“Which articles are landing?”</div><div class="w">A ranked list of blog posts by how much traffic they draw — so you can see which topics resonate and which don’t. Every post is clickable.</div></div>
+      </div>
+      <div class="tabrow">
+        <div class="chip" style="background:var(--teal)">Li</div>
+        <div><h3>LinkedIn</h3><div class="q">“Is our brand growing?”</div><div class="w">How HDI’s LinkedIn page is performing — followers over time, how posts perform, and which kinds of posts get the most engagement.</div></div>
+      </div>
+      <div class="foot">There’s also a <b>Benchmarks</b> tab (the industry standards the team compares against) — useful, but not one of the five you’ll live in day-to-day.</div>
+    </div>
+  </div>
+
+  <!-- HOW TO READ ANY NUMBER -->
+  <div class="sec">
+    <h2>3 · How to read any number on the screen</h2>
+    <div class="card">
+      <div class="reads">
+        <div class="read"><span class="badge" style="background:#E7F3EC;color:var(--ok)">↑ +48%</span><div>A <b>green up-arrow</b> = better than the period before. This is good.</div></div>
+        <div class="read"><span class="badge" style="background:#F7E9E4;color:var(--warn)">↓ −12%</span><div>A <b>red down-arrow</b> = worse than the period before. Worth a look.</div></div>
+        <div class="read"><span class="badge" style="background:var(--lime);color:var(--teal)">bar</span><div>A <b>lime bar</b> = it clears the industry benchmark (a good result).</div></div>
+        <div class="read"><span class="badge" style="background:var(--sage);color:var(--teal)">bar</span><div>A <b>lighter bar</b> = below the benchmark. Context, not alarm.</div></div>
+        <div class="read"><span class="badge" style="background:#fff;border:1px solid var(--line);color:var(--mute)">—</span><div>A <b>dash</b> = no data yet. Never a zero. Nothing is invented.</div></div>
+        <div class="read"><span class="badge" style="background:#fff;border:1px solid var(--line);color:var(--mute)">was 32%</span><div><b>“was …”</b> = the value in the previous period, so you can see the change.</div></div>
+      </div>
+      <div class="foot"><b>“vs prior period”</b> means the dashboard compares your chosen window to the one right before it — e.g. the last 30 days against the 30 days before that. Same length, fair comparison. <b>“Reference”</b> next to a benchmark means it’s an industry figure shown for context, not yet an official HDI goal.</div>
+    </div>
+  </div>
+
+  <!-- GLOSSARY -->
+  <div class="sec">
+    <h2>4 · Words you’ll see, in plain English</h2>
+    <div class="card">
+      <div class="gloss">
+        <div class="term"><b>Visitor</b> — <span>one person who came to the website.</span></div>
+        <div class="term"><b>Session</b> — <span>one visit. One person can visit several times.</span></div>
+        <div class="term"><b>Impression</b> — <span>one time a post was shown to someone (LinkedIn).</span></div>
+        <div class="term"><b>Engagement rate</b> — <span>the share of visits/posts where people actually did something (read, clicked, reacted) — a quality score.</span></div>
+        <div class="term"><b>Channel</b> — <span>how someone arrived: a Google search, a direct visit, a social link, etc.</span></div>
+        <div class="term"><b>Landing page</b> — <span>the first page someone lands on when they arrive.</span></div>
+        <div class="term"><b>Bot</b> — <span>automated (non-human) web traffic. About half of all web traffic is bots — normal, and filtered out where it matters.</span></div>
+        <div class="term"><b>Pipeline</b> — <span>the total value of sales deals currently in progress.</span></div>
+        <div class="term"><b>Closed won</b> — <span>deals that were signed and became revenue.</span></div>
+        <div class="term"><b>Followers</b> — <span>people who subscribed to HDI’s LinkedIn page.</span></div>
+        <div class="term"><b>Benchmark</b> — <span>the typical industry number, shown so you know if HDI is ahead or behind.</span></div>
+        <div class="term"><b>GA4 / Clarity</b> — <span>the two behind-the-scenes tools that measure the website. You never open them — the dashboard reads them for you.</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FIRST 60 SECONDS -->
+  <div class="sec">
+    <h2>5 · Try it — your first 60 seconds</h2>
+    <div class="card">
+      <ol class="steps">
+        <li>Open the dashboard link. You’ll land on the <b>Board</b> tab.</li>
+        <li>At the top, click <b>30D</b> to look at the last 30 days.</li>
+        <li>Click the <b>Website</b> tab. Read the top numbers — visitors, sessions — and their green/red arrows.</li>
+        <li>Scroll to <b>Landing pages</b> and <b>Top pages</b>. Click any page name to open the real page.</li>
+        <li>Click the <b>LinkedIn</b> tab and look at the <b>Followers over time</b> line — is it climbing?</li>
+        <li>That’s it. Nothing you click changes any data — explore freely.</li>
+      </ol>
+    </div>
+  </div>
+
+  <div class="sec">
+    <div class="card">
+      <div class="foot" style="border:0;margin:0;padding:0">
+        <b>The one promise behind every number:</b> everything you see is read live from HDI’s real systems and stamped with where it came from. Nothing is estimated, rounded up, or filled in — if a number isn’t known yet, it shows a dash. You can trust what’s on the screen.
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-top:28px;font-family:var(--m);font-size:11px;color:var(--mute);text-align:center">
+    HDI Marketing Dashboard · how-to guide · nothing here changes the data — safe to explore
+  </div>
+
+</div>
+</body>
+</html>
