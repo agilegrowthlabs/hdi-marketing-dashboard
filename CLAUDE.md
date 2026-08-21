@@ -119,29 +119,26 @@ Rules specific to this panel:
 - Never hardcode the counts. If Clarity returns no bot field, the card must disappear, not
   show a stale/zero number.
 
-## DO NOT REMOVE — THE LINKEDIN TAB + MANUAL UPLOAD (load-bearing)
-LinkedIn is a **manual upload for V1** (Verona: LinkedIn is Phase 1; direct API deferred). The
-data lives in **`data/linkedin.json`**, fetched in `load()` into the global **`LI`** (alongside
-`BM`), served at `/data/linkedin.json`. `linkedin()` renders the HDI LinkedIn executive layout
-(matches the exec deck Henry supplied Aug 18): profile-view highlights (Impressions / Reactions /
-Comments / Reposts with % vs prior), follower highlights (Total / New-30d / Auto-invited / Search
-appearances), "Engagement rate by format" bars, the full "Content engagement" post table, "Who
-engaged with my content" (engager cards), and "Follower demographics · location" bars.
-- To refresh: replace `data/linkedin.json` with the next export (same shape). No code change.
-- `shell()` marks `m.linkedin="live"` when `LI` is present, so the amber "LINKEDIN has never
-  received an upload" banner does NOT fire while a manual upload exists. Keep that guard.
-- Numbers come only from `data/linkedin.json` — never hardcode LinkedIn metrics into index.html.
-- `data/linkedin.json` also carries the TREND SERIES (`trends.followers_monthly`,
-  `trends.engagement_monthly`, `trends.visitors_monthly` as `[label,value]` arrays), `post_types`
-  (engagement rate by content format), `qoq` (quarter-over-quarter), and `benchmark`. `linkedin()`
-  renders three `trend()` line charts (followers / engagement vs the 1–3% industry benchmark /
-  unique visitors), the engagement-by-content-type bars (best↔worst), the QoQ comparison, the
-  benchmark bars, and a leadership takeaway with a correlation-not-causation caveat — matching the
-  HDI LinkedIn exec deck. Keep all of these; they are what Henry required (Aug 18: "trend lines are
-  absolutely required … exactly like the powerpoint").
-- The trend series are reconstructed from the deck. When the raw LinkedIn time-series export
-  arrives, replace the `trends.*` arrays with exact daily/monthly values — no code change needed.
-- If the pipeline ever delivers a live LinkedIn feed, prefer `S.sources.linkedin`; until then `LI`.
+## DO NOT REMOVE — THE LINKEDIN TAB + ACCUMULATING MANUAL UPLOAD (load-bearing)
+LinkedIn is a **manual upload with ACCUMULATING HISTORY** (schema 2). Data lives in
+**`data/linkedin.json`** → global **`LI`**, served at `/data/linkedin.json`, fetched in `load()`.
+Shape: `seed_trends` (historical backfill reconstructed from the exec deck), `post_types`,
+`benchmark`, and **`uploads[]`** — one object per monthly export, **RETAINED forever**.
+- **To add a month: APPEND one object to `uploads` — NEVER replace the array.** That is what
+  keeps history. Each upload carries `period`, `month` (e.g. "Aug '26"), `engagement_rate`,
+  `profile`, `followers`, `posts[]`, `engagers[]`, `demographics_location[]`.
+- `linkedin()` uses the LATEST upload for current KPIs / content table / engagers / demographics,
+  and builds trends from **seed + every upload**: Followers over time (`seed.followers_monthly` +
+  each upload's `followers.total`), Engagement rate over time (`seed.engagement_monthly` + each
+  upload's `engagement_rate`, vs the 1–3% industry line), Impressions per month (uploads, ≥2 pts),
+  and Unique visitors (historical seed). It also renders a **"Post archive — individual performance
+  over time"** table (union of every upload's posts) and a **"History is stored, not overwritten"**
+  box showing the count of stored periods. Keep all of these.
+- Numbers come ONLY from `data/linkedin.json` — never hardcode LinkedIn metrics into index.html.
+- `shell()` marks `m.linkedin="live"` when `LI` is present so the "never received an upload" banner
+  does not fire. Keep that guard.
+- Verona confirmed LinkedIn is Phase 1. If the pipeline ever delivers a live feed, prefer
+  `S.sources.linkedin`; until then `LI`.
 
 ## DO NOT REMOVE — THE BLOG TAB (load-bearing)
 Tab "Blog" (`data-t="blog"`, pane `#p-blog`), rendered by `blog()`, between Website and LinkedIn.
@@ -180,10 +177,14 @@ Preserve it. Restyle freely, but keep:
   days"); the secondary note gives the prior-period value FIRST ("was 32% · industry reference
   52–56%") because Verona said the prior period is the more important number, benchmark second.
   Cards are coloured by direction of change, not benchmark position.
-- The word "behind" is BANNED everywhere user-facing (Verona Aug 17: "I don't get behind").
-  `benchPos()` returns "ahead" / "in line" / "below" / "at benchmark" — never "behind". The
-  "HDI vs industry benchmark" table POSITION column and the leadership-takeaway box both use
-  "below" / "below the benchmark". If you touch benchPos, keep "below".
+- The words "behind" AND "below the benchmark" are BANNED everywhere user-facing (Verona Aug 17;
+  Henry Aug 19). The Insights "HDI vs the industry reference" table shows HDI-now beside the
+  industry range with NO verdict column. The takeaway box says "Engagement is climbing", never
+  "below the benchmark". Keep it neutral — the site relaunched recently and is still ramping.
+- The ~158s "avg engaged time" benchmark was REMOVED (Henry Aug 19): 158s is session DURATION
+  (old Universal Analytics), not GA4 average-engagement-time-per-session (~30–90s). Do not re-add
+  it. The AVG ENGAGED TIME card shows current vs prior only, note "avg active seconds per visit".
+  `GA4_SESS_BENCH`/`sessBench` are now unused; the 52–56% engagement-rate reference stays.
 - Channel bars (both tabs) show engaged rate as the bar, coloured lime when the channel clears
   the benchmark and sage when below — there is NO black benchmark tick mark on the bars (Verona
   Aug 17: "these black marks need to go"). Do not re-add the per-bar tick (`i[4]` in bars()).

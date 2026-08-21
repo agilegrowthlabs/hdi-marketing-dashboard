@@ -734,7 +734,8 @@ function website(){
       kpi("VISITORS",num(users),uMomW!=null?(ga4Arrow(uMomW)+pctTxt(uMomW)+" vs prior "+W2.winLen+" days"):"unique visitors",uMomW!=null?("was "+num(W2.up)):"",mix(sp(),{hi:true}))+
       kpi("ENGAGED SESSIONS",num(eng),sess?(Math.round(eng/sess*100)+"% of sessions"):"",null,sp())+
       kpi("ENGAGEMENT RATE",engRateW!=null?engRateW.toFixed(0)+"%":"—",engChgW!=null?(ga4Arrow(engChgW)+pctTxt(engChgW)+" vs prior "+W2.winLen+" days"):("industry reference "+IB.engRate.lo+"–"+IB.engRate.hi+"%"),engChgW!=null?("was "+Math.round(W2.engRateP)+"% · industry reference "+IB.engRate.lo+"–"+IB.engRate.hi+"%"):null,mix(sp(),engChgW==null?{}:(engChgW>=0?{ok:true}:{warn:true})))+
-    '</div>';
+    '</div>'+
+    '<div class="card" style="margin-top:-2px;margin-bottom:12px;background:var(--tealb);border-color:#CFE3DF"><div class="cb" style="padding:11px 14px"><div class="foot" style="margin:0;border:0;padding:0;color:var(--teal)"><b>What “engagement rate” means:</b> the share of visits where the person actively engaged — stayed longer than 10 seconds, viewed more than one page, or triggered a tracked action (a click, form, or download). It’s a <b>quality</b> measure — of everyone who arrived, how many actually paid attention — not just a headcount. Higher is better.</div></div></div>';
 
     var t=trend(gd.map(function(x){return {label:(x.date||"").slice(5),v:x.sessions};}),{trendline:true});
     var lastV=gd[gd.length-1].sessions;
@@ -881,16 +882,16 @@ function blog(){
   var SITE=["/","/careers","/services","/services-new","/about-us","/about","/contact","/why-hdi","/health-systems","/payers","/solutions","/team","/leadership","/privacy","/privacy-policy","/terms","/test-page","/home-new","/overview","/case-studies","/resources","/cms"];
   function isBlogPath(pth){
     var p=norm(pth);
-    if(p==="/"||p==="/resources")return false;
-    if(p.indexOf("/resources/")===0)return true;           /* new structure */
+    if(p==="/"||p==="/resources"||p==="/blog")return false;
+    if(p.indexOf("/resources/")===0||p.indexOf("/blog/")===0)return true;  /* /resources/ (new) or /blog/ (transitional) */
     if(p.indexOf("/category/")===0||p.indexOf("/tag/")===0)return false;  /* taxonomy */
     if(/\.php$/.test(p))return false;                       /* legacy site */
     if(p.indexOf("/cms/")===0||/\/member_id$/.test(p))return false;
     if(SITE.indexOf(p)>=0)return false;
     return p.split("/").length===2 && p.length>1;           /* legacy root content slug */
   }
-  function blogURL(pth){var p=norm(pth);if(p.indexOf("/resources/")===0)return SITE_URL+p;return SITE_URL+"/resources/"+p.replace(/^\//,"");}
-  function title(pth){var p=norm(pth).replace(/^\/resources\//,"").replace(/^\//,"");if(!p)return "(home)";p=p.replace(/-/g," ");return p.charAt(0).toUpperCase()+p.slice(1);}
+  function blogURL(pth){var p=norm(pth);if(p.indexOf("/resources/")===0||p.indexOf("/blog/")===0)return SITE_URL+p;return SITE_URL+"/resources/"+p.replace(/^\//,"");}
+  function title(pth){var p=norm(pth).replace(/^\/(resources|blog)\//,"").replace(/^\//,"");if(!p)return "(home)";p=p.replace(/-/g," ");return p.charAt(0).toUpperCase()+p.slice(1);}
   function blogLink(pth){return '<a href="'+esc(blogURL(pth))+'" target="_blank" rel="noopener" style="color:var(--teal);border-bottom:1px solid var(--sage);text-decoration:none">'+esc(title(pth))+'</a>';}
 
   var posts=lp.filter(function(x){return isBlogPath(x.landing_page);})
@@ -943,24 +944,28 @@ function building(src,n){
 }
 
 /* ================= LINKEDIN ================= */
-/* V1 = manual upload (/data/linkedin.json → LI). Reproduces the HDI LinkedIn executive deck:
-   follower / engagement / unique-visitor TREND LINES, engagement-by-content-type (best↔worst),
-   quarter-over-quarter comparison, benchmark, plus the current export's content table, engagers
-   and demographics. Replace data/linkedin.json to refresh. */
+/* V1 manual upload with ACCUMULATING HISTORY. Reads /data/linkedin.json (schema 2): `seed_trends`
+   is the historical backfill from the exec deck; `uploads[]` is one entry per manual monthly export
+   and is RETAINED forever. Trends = seed + every upload, so followers / engagement / impressions
+   extend with real data each month, and every post is archived so individual post performance is
+   kept over time. To add a month, append one object to `uploads` — never replace the array. */
 function linkedin(){
   var h='', L=LI;
-  if(!L){
+  var ups=(L&&L.uploads)||[];
+  if(!L||!ups.length){
     h='<div class="card"><div class="ch"><h3>LinkedIn</h3>'+tag("none","Manual upload")+'</div><div class="cb">'+
-      empty("No LinkedIn export loaded yet","LinkedIn is a manual upload for V1. Drop the latest export into <code>/data/linkedin.json</code> and this tab fills in.")+
+      empty("No LinkedIn export loaded yet","LinkedIn is a manual upload for V1. Add an export to <code>/data/linkedin.json</code> (in <code>uploads[]</code>) and this tab fills in.")+
       '</div></div>';
     $("p-li").innerHTML=h;return;
   }
-  var P=L.profile||{}, F=L.followers||{}, T=L.trends||{}, Q=L.qoq||{}, B=L.benchmark||{}, posts=(L.posts||[]).slice();
+  var cur=ups[ups.length-1];
+  var seed=L.seed_trends||{}, B=L.benchmark||{};
+  var P=cur.profile||{}, F=cur.followers||{}, posts=(cur.posts||[]).slice();
   function o(x){return x||{};}
   function dpct(x){x=o(x);if(x.delta==null)return "";var v=x.delta;return (v>0?"↑ +":(v<0?"↓ ":"→ "))+Math.abs(v)+"%";}
   function dcls(x){x=o(x);if(x.delta==null||x.delta===0)return {};return x.delta>0?{ok:true}:{warn:true};}
-  function series(arr){return (arr||[]).map(function(p){return {label:p[0],v:p[1]};});}
-  var period=esc(L.period||"the reporting period");
+  function ser(arr){return (arr||[]).map(function(p){return {label:p[0],v:p[1]};});}
+  var period=esc(cur.period||"the reporting period");
   var upTag='<span class="tag stub" style="white-space:nowrap">Manual upload · '+period+'</span>';
 
   /* ---- HEADER + current-period highlights ---- */
@@ -969,7 +974,7 @@ function linkedin(){
     '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin:6px 0 4px">'+
       '<h3 style="font-size:22px;letter-spacing:-.02em;margin:0;color:var(--ink)">The LinkedIn audience is compounding.</h3>'+upTag+
     '</div>'+
-    '<p class="sub" style="margin:0">From <b>181</b> followers when tracking began to <b>'+num(F.total)+'</b> today — engagement running well above the B2B benchmark. Profile highlights are for <b>'+period+'</b>; each % is vs the prior period.</p>'+
+    '<p class="sub" style="margin:0">From <b>181</b> followers when tracking began to <b>'+num(F.total)+'</b> today. Profile highlights are for <b>'+period+'</b>; each % is vs the prior period.</p>'+
     '<div class="kpis" style="margin-top:14px">'+
       kpi("IMPRESSIONS",num(o(P.impressions).value),dpct(P.impressions),"vs prior period",mix(sp(),dcls(P.impressions)))+
       kpi("REACTIONS",num(o(P.reactions).value),dpct(P.reactions),"vs prior period",mix(sp(),dcls(P.reactions)))+
@@ -985,54 +990,49 @@ function linkedin(){
     kpi("SEARCH APPEARANCES",num(o(F.search_appearances).value),dpct(F.search_appearances),esc(o(F.search_appearances).window||"in search results"),mix(sp(),dcls(F.search_appearances)))+
     '</div></div></div>';
 
-  /* ---- TREND: Total followers over time ---- */
-  if((T.followers_monthly||[]).length>1){
-    var tf=trend(series(T.followers_monthly),{trendline:true});
-    h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Total followers over time</h3><span class="note">Aug 2024 → today · dashed = overall trend</span>'+upTag+'</div><div class="cb">'+
+  /* ---- TREND: followers over time (seed history + every upload) ---- */
+  var folSeries=(seed.followers_monthly||[]).concat(ups.map(function(u){return [u.month||u.period,o(u.followers).total];}));
+  if(folSeries.length>1){
+    var tf=trend(ser(folSeries),{trendline:true});
+    h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Total followers over time</h3><span class="note">Aug 2024 → today · dashed = overall trend · extends with each upload</span>'+upTag+'</div><div class="cb">'+
       (tf?tf.svg:"")+
-      '<div class="foot"><b>181 → '+num(F.total)+'</b> ('+(F.since_start_pct?"+"+F.since_start_pct+"%":"")+' since Aug ’24). Growth stepped up after <b>focused marketing (Jun ’25)</b> and again with <b>new activity (Jun ’26)</b> — the trend line is climbing, not flattening.</div>'+
+      '<div class="foot"><b>181 → '+num(F.total)+'</b> ('+(F.since_start_pct?"+"+F.since_start_pct+"%":"")+' since Aug ’24). Each new monthly upload adds a real point on the right — the line keeps growing on its own.</div>'+
       '</div></div>';
   }
 
-  /* ---- TREND: Engagement rate vs benchmark ---- */
-  if((T.engagement_monthly||[]).length>1){
-    var te=trend(series(T.engagement_monthly),{trendline:true,benchmark:(B.company_high||3),benchmarkLabel:"industry "+(B.company_low||1)+"–"+(B.company_high||3)+"%",fmt:function(v){return v+"%";}});
+  /* ---- TREND: engagement rate over time (seed + uploads' computed rate) ---- */
+  var engSeed=(seed.engagement_monthly||[]).concat(ups.filter(function(u){return u.engagement_rate!=null;}).map(function(u){return [u.month||u.period,u.engagement_rate];}));
+  if(engSeed.length>1){
+    var te=trend(ser(engSeed),{trendline:true,benchmark:(B.company_high||3),benchmarkLabel:"industry "+(B.company_low||1)+"–"+(B.company_high||3)+"%",fmt:function(v){return v+"%";}});
     h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Engagement rate over time</h3><span class="note">monthly · dashed = trend · flat line = industry '+(B.company_low||1)+'–'+(B.company_high||3)+'% benchmark</span>'+upTag+'</div><div class="cb">'+
       (te?te.svg:"")+
-      '<div class="foot">HDI averages ~<b>'+(B.hdi||8)+'%</b> — roughly <b>4×</b> a typical B2B company page ('+(B.company_low||1)+'–'+(B.company_high||3)+'%). It peaked at <b>18% (Nov ’25)</b>; month-to-month swings are normal on a small base, but the trend sits well above benchmark throughout.</div>'+
+      '<div class="foot">HDI averages well above the '+(B.company_low||1)+'–'+(B.company_high||3)+'% industry range — roughly <b>4×</b> a typical B2B company page. Each upload extends this line with that month’s actual rate.</div>'+
       '</div></div>';
   }
 
-  /* ---- Engagement by content type (best ↔ worst — what's working) ---- */
+  /* ---- TREND: impressions per period (uploads only — grows) ---- */
+  var impSeries=ups.map(function(u){return [u.month||u.period,o(o(u.profile).impressions).value];});
+  if(impSeries.length>1){
+    var ti=trend(ser(impSeries),{trendline:true});
+    h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Impressions per month</h3><span class="note">one point per upload · dashed = trend</span>'+upTag+'</div><div class="cb">'+(ti?ti.svg:"")+
+      '<div class="foot">Total reach each reporting period. This line builds one point per monthly upload.</div></div></div>';
+  }
+
+  /* ---- Engagement by content type ---- */
   var pt=(L.post_types||[]).slice().sort(function(a,b){return b.er-a.er;});
   if(pt.length){
     var ptMax=pt[0].er||1, best=pt[0], worst=pt[pt.length-1];
-    h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Engagement rate by content type</h3><span class="note">Jan 2025 – May 2026 · bar = avg engagement rate · n = posts published</span>'+upTag+'</div><div class="cb">'+
+    h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Engagement rate by content type</h3><span class="note">bar = avg engagement rate · n = posts published</span>'+upTag+'</div><div class="cb">'+
       bars(pt.map(function(x,i){return [x.type+" · n="+x.n,x.er,i===0?"var(--lime)":(x===worst?"var(--taupe)":"var(--sage)"),x.er.toFixed(1)+"%"];}),ptMax)+
-      '<div class="foot"><b>Best: '+esc(best.type)+' ('+best.er.toFixed(1)+'%)</b>; carousels, jobs and video lead. <b>Worst: '+esc(worst.type)+' ('+worst.er.toFixed(1)+'%)</b> — yet single images are <b>n='+worst.n+'</b>, the vast majority of what’s published. <b>The lever is the mix:</b> more carousels, documents and video; fewer single images. Richer formats <i>correlate</i> with higher engagement — a strong signal, though format alone isn’t proven causation.</div>'+
+      '<div class="foot"><b>Best: '+esc(best.type)+' ('+best.er.toFixed(1)+'%)</b>; carousels, jobs and video lead. <b>Worst: '+esc(worst.type)+' ('+worst.er.toFixed(1)+'%)</b> — yet single images are <b>n='+worst.n+'</b>, most of what’s published. <b>The lever is the mix:</b> more carousels, documents and video; fewer single images.</div>'+
       '</div></div>';
   }
 
-  /* ---- TREND: Unique visitors over time ---- */
-  if((T.visitors_monthly||[]).length>1){
-    var tv=trend(series(T.visitors_monthly),{trendline:true});
-    var uv=o(Q.unique_visitors);
-    h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Unique visitors over time</h3><span class="note">monthly · dashed = overall trend'+(uv.q2?" · Q2 "+num(uv.q2)+(uv.delta!=null?" (↑"+uv.delta+"%)":""):"")+'</span>'+upTag+'</div><div class="cb">'+
-      (tv?tv.svg:"")+
-      '<div class="foot">Page visitors are <b>trending up</b> over the full window, with a standout <b>196 (Feb ’26)</b>. Spikes track campaign and event activity — worth pairing with the content calendar to see what drove each peak.</div>'+
-      '</div></div>';
-  }
-
-  /* ---- Quarter-over-quarter (comparison to a similar timeframe) ---- */
-  if(Q.impressions){
-    function qkpi(lbl,q,unit){q=o(q);var d=q.delta;return kpi(lbl,(unit==="%"?(q.q2+"%"):num(q.q2)),(d!=null?((d>=0?"↑ +":"↓ ")+Math.abs(d)+"% QoQ"):""),(q.q1!=null?("Q1: "+(unit==="%"?q.q1+"%":num(q.q1))):""),mix(sp(),d==null?{}:(d>=0?{ok:true}:{warn:true})));}
-    h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Quarter over quarter</h3><span class="note">Q2 vs Q1 FY2026 · same-length comparison</span>'+upTag+'</div><div class="cb"><div class="kpis">'+
-      qkpi("ENGAGEMENT RATE",Q.engagement_rate,"%")+
-      qkpi("IMPRESSIONS",Q.impressions)+
-      qkpi("REACTIONS",Q.reactions)+
-      qkpi("COMMENTS",Q.comments)+
-      '</div><div class="foot">Every headline metric is up quarter over quarter — engagement rate more than doubled (4.0% → '+(o(Q.engagement_rate).q2||8.5)+'%). This is the like-for-like comparison to the prior period, not raw month-to-month noise.</div>'+
-      '</div></div>';
+  /* ---- Unique visitors over time (historical seed) ---- */
+  if((seed.visitors_monthly||[]).length>1){
+    var tv=trend(ser(seed.visitors_monthly),{trendline:true});
+    h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Unique visitors over time</h3><span class="note">monthly · dashed = trend · historical through May ’26</span>'+upTag+'</div><div class="cb">'+(tv?tv.svg:"")+
+      '<div class="foot">Page visitors trend up over the window, peaking <b>196 (Feb ’26)</b>. Extends once visitor counts are included in the monthly upload.</div></div></div>';
   }
 
   /* ---- HDI vs industry benchmark ---- */
@@ -1044,31 +1044,41 @@ function linkedin(){
         ["Personal page avg",B.personal_high,"var(--taupe)",B.personal_low+"–"+B.personal_high+"%"],
         ["Pages under 1,000",B.under1k_high,"var(--taupe)",B.under1k_low+"–"+B.under1k_high+"%"]
       ],Math.max(B.hdi,B.personal_high,5))+
-      '<div class="foot">At <b>'+B.hdi+'% average engagement</b>, HDI performs roughly <b>4×</b> a typical company page of its size — reach quality that outpaces the follower count.</div>'+
+      '<div class="foot">At <b>'+B.hdi+'% average engagement</b>, HDI performs roughly <b>4×</b> a typical company page of its size.</div>'+
       '</div></div>';
   }
 
-  /* ---- Content engagement table (recent posts, current export) ---- */
+  /* ---- Content engagement (latest period) ---- */
+  function postRows(list,showPeriod){return list.map(function(p){var title=esc(p.title||"");
+    return '<tr>'+
+      '<td style="max-width:320px"><div style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+title+'">'+title+'</div>'+
+      '<div style="color:var(--mute);font-size:10px">'+esc(p.by||"")+' · '+esc(p.date||"")+(showPeriod&&p._month?' · '+esc(p._month):'')+'</div></td>'+
+      '<td>'+esc(p.type||"—")+'</td><td class="n">'+num(p.impressions)+'</td><td class="n">'+(p.clicks!=null?num(p.clicks):"—")+'</td>'+
+      '<td class="n">'+(p.ctr!=null?p.ctr+"%":"—")+'</td><td class="n">'+(p.reactions!=null?p.reactions:"—")+'</td>'+
+      '<td class="n">'+(p.reposts!=null?p.reposts:"—")+'</td><td class="n"><b>'+(p.er!=null?p.er+"%":"—")+'</b></td></tr>';}).join("");}
   if(posts.length){
     var byEr=posts.slice().sort(function(a,b){return (b.er||0)-(a.er||0);});
     var top=byEr[0], low=byEr[byEr.length-1];
-    var rows=posts.map(function(p){var title=esc(p.title||"");
-      return '<tr>'+
-        '<td style="max-width:340px"><div style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+title+'">'+title+'</div>'+
-        '<div style="color:var(--mute);font-size:10px">'+esc(p.by||"")+' · '+esc(p.date||"")+'</div></td>'+
-        '<td>'+esc(p.type||"—")+'</td><td class="n">'+num(p.impressions)+'</td><td class="n">'+(p.clicks!=null?num(p.clicks):"—")+'</td>'+
-        '<td class="n">'+(p.ctr!=null?p.ctr+"%":"—")+'</td><td class="n">'+(p.reactions!=null?p.reactions:"—")+'</td>'+
-        '<td class="n">'+(p.comments!=null?p.comments:"—")+'</td><td class="n">'+(p.reposts!=null?p.reposts:"—")+'</td>'+
-        '<td class="n"><b>'+(p.er!=null?p.er+"%":"—")+'</b></td></tr>';
-    }).join("");
     h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Content engagement · this period</h3><span class="note">'+period+' · every post</span>'+upTag+'</div><div class="cb" style="overflow-x:auto">'+
-      '<table><thead><tr><th>Post</th><th>Type</th><th>Impr.</th><th>Clicks</th><th>CTR</th><th>Reactions</th><th>Comments</th><th>Reposts</th><th>Eng. rate</th></tr></thead><tbody>'+rows+'</tbody></table>'+
-      '<div class="foot"><b>Best this period:</b> “'+esc((top.title||"").slice(0,60))+'” ('+top.type+', '+top.er+'%). <b>Weakest:</b> “'+esc((low.title||"").slice(0,60))+'” ('+low.type+', '+low.er+'%). The document/PDF posts with strong click-through pulled the period up — consistent with the format trend above.</div>'+
+      '<table><thead><tr><th>Post</th><th>Type</th><th>Impr.</th><th>Clicks</th><th>CTR</th><th>Reactions</th><th>Reposts</th><th>Eng. rate</th></tr></thead><tbody>'+postRows(posts)+'</tbody></table>'+
+      '<div class="foot"><b>Best this period:</b> “'+esc((top.title||"").slice(0,58))+'” ('+top.type+', '+top.er+'%). <b>Weakest:</b> “'+esc((low.title||"").slice(0,58))+'” ('+low.type+', '+low.er+'%).</div>'+
+      '</div></div>';
+  }
+
+  /* ---- Individual post performance over time — the ARCHIVE across all uploads ---- */
+  var archive=[];
+  ups.forEach(function(u){(u.posts||[]).forEach(function(p){var c=Object.assign({},p);c._month=u.month||u.period;archive.push(c);});});
+  var storedPeriods=ups.length;
+  if(archive.length){
+    var archTop=archive.slice().sort(function(a,b){return (b.er||0)-(a.er||0);}).slice(0,12);
+    h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Post archive — individual performance over time</h3><span class="note">'+archive.length+' post'+(archive.length===1?"":"s")+' across '+storedPeriods+' period'+(storedPeriods===1?"":"s")+' · top by engagement</span>'+upTag+'</div><div class="cb" style="overflow-x:auto">'+
+      '<table><thead><tr><th>Post</th><th>Type</th><th>Impr.</th><th>Clicks</th><th>CTR</th><th>Reactions</th><th>Reposts</th><th>Eng. rate</th></tr></thead><tbody>'+postRows(archTop,true)+'</tbody></table>'+
+      '<div class="foot"><b>Every post from every upload is kept here.</b> As more months are uploaded this becomes the running record of individual post performance — which topics and formats win over time, not just this month. '+(storedPeriods===1?"Right now it holds this first period; it grows automatically with each upload.":"Spanning "+storedPeriods+" periods so far.")+'</div>'+
       '</div></div>';
   }
 
   /* ---- Who engaged ---- */
-  var eng=L.engagers||[];
+  var eng=cur.engagers||[];
   if(eng.length){
     h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Who engaged with my content</h3><span class="note">notable engagers this period</span>'+upTag+'</div><div class="cb">'+
       eng.map(function(e){var init=(e.name||"?").split(/\s+/).map(function(w){return w.charAt(0);}).slice(0,2).join("").toUpperCase();
@@ -1077,29 +1087,24 @@ function linkedin(){
           '<div style="min-width:0"><div style="font-weight:600">'+esc(e.name||"")+'</div><div style="color:var(--mute);font-size:12px">'+esc(e.title||"")+'</div>'+
           (e.action?'<div style="font-size:12px;margin-top:2px">'+esc(e.action)+'</div>':'')+'</div></div>';
       }).join("")+
-      '<div class="foot">People who reacted to or commented on HDI posts — warm signals for sales follow-up. Premium can auto-invite post engagers to follow the page.</div>'+
+      '<div class="foot">People who reacted to or commented on HDI posts — warm signals for sales follow-up.</div>'+
       '</div></div>';
   }
 
   /* ---- Follower demographics: location ---- */
-  var loc=L.demographics_location||[];
+  var loc=cur.demographics_location||[];
   if(loc.length){
     var lmax=loc.reduce(function(a,x){return Math.max(a,x.value||0);},0)||1;
     h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Follower demographics · location</h3><span class="note">top metro areas · share of followers</span>'+upTag+'</div><div class="cb">'+
       bars(loc.map(function(x,i){return [x.label,x.value,i===0?"var(--lime)":"var(--sage)",x.value+" · "+x.pct+"%"];}),lmax)+
-      '<div class="foot">Where followers concentrate — useful for event, regional-campaign and ABM targeting. Cleveland, Chicago and the NYC metro lead.</div>'+
+      '<div class="foot">Where followers concentrate — useful for event, regional-campaign and ABM targeting.</div>'+
       '</div></div>';
   }
 
-  /* ---- What leadership should take away ---- */
-  h+='<div class="card" style="margin-top:12px;border-color:#BFDBD6;background:var(--tealb)"><div class="ch" style="border-color:#CFE3DF"><h3 style="color:var(--teal)">What leadership should take away</h3></div><div class="cb"><ul style="margin:0;padding-left:18px;color:var(--teal)">'+
-    '<li style="margin-bottom:7px"><b>Followers are compounding</b> — '+num(F.total)+' and climbing, up '+(F.since_start_pct||285)+'% since Aug ’24; the trend line is still rising.</li>'+
-    '<li style="margin-bottom:7px"><b>Engagement outperforms</b> the B2B benchmark by roughly 4× ('+(B.hdi||8)+'% vs '+(B.company_low||1)+'–'+(B.company_high||3)+'%).</li>'+
-    '<li style="margin-bottom:7px"><b>Content mix is the lever</b> — carousels, documents and video engage far above single images. Shift the mix and both engagement and reach follow.</li>'+
-    '<li><b>Correlation, not proven causation</b> — richer formats and campaign activity move alongside the gains; we flag the likely drivers rather than assert them, since there’s no controlled test behind the numbers.</li>'+
-    '</ul></div></div>';
-
-  h+='<div class="card" style="margin-top:12px"><div class="cb"><div class="foot" style="margin:0">Manual LinkedIn upload ('+period+') from <code>/data/linkedin.json</code>. Trend series reconstructed from the LinkedIn executive deck; current-period highlights, the content table, engagers and demographics come from the latest export. Swap in the raw time-series export to make every daily point exact.</div></div></div>';
+  /* ---- Storage / history note ---- */
+  h+='<div class="card" style="margin-top:12px;border-color:#BFDBD6;background:var(--tealb)"><div class="cb" style="color:var(--teal)">'+
+    '<b>History is stored, not overwritten.</b> This tab currently holds <b>'+storedPeriods+' uploaded period'+(storedPeriods===1?"":"s")+'</b> ('+archive.length+' posts archived). Each new monthly export is <i>added</i> to the record — so the follower, engagement and impression trends keep extending, and every individual post stays in the archive for over-time comparison. Nothing is replaced or lost.'+
+    '</div></div>';
 
   $("p-li").innerHTML=h;
 }
@@ -1276,7 +1281,7 @@ function insights(){
       kpi("WEBSITE SESSIONS",num(s30),subCmp(mom),noteCmp("was "+num(s30p)),mix(sp(),mom==null?{}:(mom>=0?{ok:true}:{warn:true})))+
       kpi("WEBSITE VISITORS",num(u30),subCmp(uMom),noteCmp("was "+num(u30p)),mix(sp(),{hi:true}))+
       kpi("ENGAGEMENT RATE",engRate!=null?engRate.toFixed(0)+"%":"—",hasP?(arrow(engChg)+pctTxt(engChg)+" vs "+priorDesc):esc(span),"was "+(engRateP!=null?Math.round(engRateP)+"%":"—")+" · industry reference "+IB.engRate.lo+"–"+IB.engRate.hi+"%",mix(sp(),engChg==null?{}:(engChg>=0?{ok:true}:{warn:true})))+
-      kpi("AVG ENGAGED TIME",avgEng!=null?Math.round(avgEng)+"s":"—",hasP?(arrow(timeChg)+pctTxt(timeChg)+" vs "+priorDesc):esc(span),"was "+(avgEngP!=null?Math.round(avgEngP)+"s":"—")+" · industry reference ~"+sessBench+"s",mix(sp(),timeChg==null?{}:(timeChg>=0?{ok:true}:{warn:true})))+
+      kpi("AVG ENGAGED TIME",avgEng!=null?Math.round(avgEng)+"s":"—",hasP?(arrow(timeChg)+pctTxt(timeChg)+" vs "+priorDesc):esc(span),"was "+(avgEngP!=null?Math.round(avgEngP)+"s":"—")+" · avg active seconds per visit",mix(sp(),timeChg==null?{}:(timeChg>=0?{ok:true}:{warn:true})))+
     '</div>'+
     '<div class="foot">Website traffic (Google Analytics) for <b>'+esc(span)+'</b> vs the equal period before it — driven by the date filter up top. Green = improved vs the prior period, red = declined. Industry figures are external references, shown for context.</div>'+
     srcTag(S.sources.ga4,"GA4")+'</div></div>';
@@ -1291,15 +1296,14 @@ function insights(){
       kpi("AVG CHANGE / DAY",sl==null?"—":(sl>=0?"↑ ":"↓ ")+Math.abs(sl).toFixed(1),"sessions gained or lost per day, on average, over the range shown",null,sp())+
     '</div></div></div>';
 
-  /* ---------- HDI vs INDUSTRY BENCHMARK (ahead / in line / below — never "behind", Verona Aug 17) ---------- */
-  function brow(metric,hdi,bench,p){return '<tr><td>'+metric+'</td><td class="n">'+hdi+'</td><td>'+bench+'</td><td class="'+(p.warn?"z":"n")+'"><b>'+p.t.toUpperCase()+'</b></td></tr>';}
-  h+='<div class="card" style="margin-bottom:12px"><div class="ch"><h3>HDI vs industry benchmark</h3><span class="note">is HDI ahead, in line, or below the benchmark</span>'+srcTag(S.sources.ga4,"GA4")+'</div><div class="cb">'+
-    '<table><thead><tr><th>Metric</th><th>HDI now</th><th>Industry</th><th>Position</th></tr></thead><tbody>'+
-      brow("Engagement rate — all traffic",(engRate!=null?engRate.toFixed(0)+"%":"—"),IB.engRate.lo+"–"+IB.engRate.hi+"%",epos)+
-      (organic?brow("Engagement rate — Organic Search",organic.er+"%",IB.engRate.lo+"–"+IB.engRate.hi+"%",posLabel(organic.er,IB.engRate.lo,IB.engRate.hi)):"")+
-      brow("Avg engaged time / session",(avgEng!=null?Math.round(avgEng)+"s":"—"),"~"+sessBench+"s",tpos)+
+  /* ---------- HDI vs INDUSTRY REFERENCE (neutral — no "below the benchmark" verdict, Henry Aug 19) ---------- */
+  function brow(metric,hdi,bench){return '<tr><td>'+metric+'</td><td class="n">'+hdi+'</td><td>'+bench+'</td></tr>';}
+  h+='<div class="card" style="margin-bottom:12px"><div class="ch"><h3>HDI vs the industry reference</h3><span class="note">HDI now, side by side with the typical industry range</span>'+srcTag(S.sources.ga4,"GA4")+'</div><div class="cb">'+
+    '<table><thead><tr><th>Metric</th><th>HDI now</th><th>Industry reference</th></tr></thead><tbody>'+
+      brow("Engagement rate — all traffic",(engRate!=null?engRate.toFixed(0)+"%":"—"),IB.engRate.lo+"–"+IB.engRate.hi+"%")+
+      (organic?brow("Engagement rate — Organic Search",organic.er+"%",IB.engRate.lo+"–"+IB.engRate.hi+"%"):"")+
     '</tbody></table>'+
-    '<div class="foot">Source: '+esc(IB.engRate.src)+'; session-duration median from the same GA4 benchmark set. Position compares HDI\'s current 30-day figure to the cited industry range.</div>'+
+    '<div class="foot">Reference: '+esc(IB.engRate.src)+'. Shown side by side for context, not as a pass/fail — the site relaunched recently, so quality metrics are still ramping toward the range.</div>'+
     '</div></div>';
 
   /* ---------- ENGAGEMENT BY CHANNEL — where it's working (the lever) ---------- */
@@ -1319,7 +1323,7 @@ function insights(){
   h+='<div class="card" style="margin-bottom:12px"><div class="ch"><h3>Engagement trend over time</h3>'+
     '<span class="note">GA4 engaged-session rate per day · dashed = overall trend</span>'+srcTag(S.sources.ga4,"GA4")+'</div><div class="cb">'+
     (te?te.svg:building("GA4",n))+
-    '<div class="foot">Engagement rate rose from '+(engRateP!=null?Math.round(engRateP)+"%":"—")+' to '+(engRate!=null?engRate.toFixed(0)+"%":"—")+' over '+esc(span)+' — improving, but still '+epos.t+' the '+IB.engRate.lo+'–'+IB.engRate.hi+'% benchmark. Source: '+esc(IB.engRate.src)+'.</div>'+
+    '<div class="foot">Engagement rate rose from '+(engRateP!=null?Math.round(engRateP)+"%":"—")+' to '+(engRate!=null?engRate.toFixed(0)+"%":"—")+' over '+esc(span)+' — a clear climb. Industry reference is '+IB.engRate.lo+'–'+IB.engRate.hi+'% ('+esc(IB.engRate.src.split("—")[0].trim())+').</div>'+
     '</div></div>';
 
   /* ---------- CORRELATION & CAUSATION ---------- */
@@ -1356,7 +1360,7 @@ function insights(){
   /* ---------- WHAT LEADERSHIP SHOULD TAKE AWAY ---------- */
   h+='<div class="card" style="margin-bottom:12px;border-color:#BFDBD6;background:var(--tealb)"><div class="ch" style="border-color:#CFE3DF"><h3 style="color:var(--teal)">What leadership should take away</h3></div><div class="cb"><ul style="margin:0;padding-left:18px;color:var(--teal)">'+
     '<li style="margin-bottom:7px"><b>Traffic is compounding</b> — sessions '+pctTxt(mom)+' and visitors '+pctTxt(uMom)+' month over month.</li>'+
-    '<li style="margin-bottom:7px"><b>Engagement is the gap</b> — '+(engRate!=null?engRate.toFixed(0)+"%":"—")+' engaged vs a '+IB.engRate.lo+'–'+IB.engRate.hi+'% benchmark, and '+(avgEng!=null?Math.round(avgEng)+"s":"—")+' engaged time vs ~'+sessBench+'s: HDI is <b>below the benchmark</b> on quality (though both improved sharply vs the prior 30 days).</li>'+
+    '<li style="margin-bottom:7px"><b>Engagement is climbing</b> — '+(engRate!=null?engRate.toFixed(0)+"%":"—")+' engaged'+(engRateP!=null?" (was "+Math.round(engRateP)+"%)":"")+' and '+(avgEng!=null?Math.round(avgEng)+"s":"—")+' engaged time, both improving sharply vs the prior 30 days. Industry engagement-rate reference is '+IB.engRate.lo+'–'+IB.engRate.hi+'%; the site relaunched recently, so quality is still ramping toward it.</li>'+
     (chArr.length?'<li style="margin-bottom:7px"><b>What already works</b> — '+(goodCh.length?goodCh.map(function(c){return esc(c.channel)+" ("+c.er+"%)";}).join(", ")+" meet the benchmark":"higher-intent channels engage best")+(topCh?"; "+esc(topCh.channel)+" is the biggest channel (n="+num(topCh.sessions)+") but engages at just "+topCh.er+"%":"")+'.</li>':'')+
     '<li><b>Lever</b> — convert high-volume '+(topCh?esc(topCh.channel):"Direct")+' into engagement, and grow the channels that already clear the benchmark.</li>'+
     '</ul></div></div>';
