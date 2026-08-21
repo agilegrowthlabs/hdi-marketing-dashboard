@@ -1078,18 +1078,27 @@ function linkedin(){
   }
 
   /* ---- Who engaged ---- */
-  var eng=cur.engagers||[];
-  if(eng.length){
-    h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Who engaged with my content</h3><span class="note">notable engagers this period</span>'+upTag+'</div><div class="cb">'+
+  /* Qualified external engagers only — filter out HDI's own team and job-seekers (Henry Aug 19).
+     Internal = title/company names HDI; job-seeker = "open to work"/"seeking" or reacted to a Job post.
+     Honors explicit e.internal / e.job_seeker / e.exclude flags in the data too. */
+  var HDI_RX=/health data innovations|hd-innovations|(^|[^a-z])hdi([^a-z]|$)/i;
+  var JOB_RX=/open to work|#?opentowork|seeking|looking for (a |an |my )?(new )?(role|job|position|opportunit)/i;
+  function isInternal(e){return e.internal===true||HDI_RX.test((e.title||"")+" "+(e.company||""));}
+  function isJobSeeker(e){return e.job_seeker===true||(e.reacted_post_type||"").toLowerCase()==="job"||JOB_RX.test(e.title||"");}
+  var engAll=cur.engagers||[];
+  var eng=engAll.filter(function(e){return !e.exclude && !isInternal(e) && !isJobSeeker(e);});
+  var filteredOut=engAll.length-eng.length;
+  h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Who engaged with my content</h3><span class="note">qualified external engagers · team &amp; job-seekers filtered out</span>'+upTag+'</div><div class="cb">'+
+    (eng.length?
       eng.map(function(e){var init=(e.name||"?").split(/\s+/).map(function(w){return w.charAt(0);}).slice(0,2).join("").toUpperCase();
         return '<div style="display:flex;gap:12px;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--line)">'+
           '<div style="flex:0 0 auto;width:40px;height:40px;border-radius:50%;background:var(--teal);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px">'+esc(init)+'</div>'+
-          '<div style="min-width:0"><div style="font-weight:600">'+esc(e.name||"")+'</div><div style="color:var(--mute);font-size:12px">'+esc(e.title||"")+'</div>'+
+          '<div style="min-width:0"><div style="font-weight:600">'+esc(e.name||"")+(e.company?' <span style="color:var(--mute);font-weight:400;font-size:12px">· '+esc(e.company)+'</span>':'')+'</div><div style="color:var(--mute);font-size:12px">'+esc(e.title||"")+'</div>'+
           (e.action?'<div style="font-size:12px;margin-top:2px">'+esc(e.action)+'</div>':'')+'</div></div>';
-      }).join("")+
-      '<div class="foot">People who reacted to or commented on HDI posts — warm signals for sales follow-up.</div>'+
-      '</div></div>';
-  }
+      }).join("")
+      : empty("No qualified external engagers this period","Everyone who engaged this period was either on the HDI team or a job-seeker, so none surfaced here. Qualified prospects appear as they engage in future periods."))+
+    '<div class="foot">External people who reacted to or commented on HDI posts — <b>warm signals for sales follow-up</b>. HDI team members and job-seekers are filtered out automatically'+(filteredOut>0?' ('+filteredOut+' hidden this period)':'')+'.</div>'+
+    '</div></div>';
 
   /* ---- Follower demographics: location ---- */
   var loc=cur.demographics_location||[];
@@ -1117,13 +1126,12 @@ function benchmarks(){
   var approved=keys.filter(function(k){return BM[k].hdi_target!=null;}).length;
   var h='<div class="kpis">'+
     kpi("BENCHMARKS SOURCED",String(keys.length),"2026 industry data")+
-    kpi("APPROVED AS TARGETS",String(approved),approved?"":"none yet — Rob owns this","",{warn:!approved})+
-    kpi("SHOWN AS REFERENCE",String(keys.length-approved),"context, not accountability")+
+    kpi("SHOWN AS REFERENCE",String(keys.length),"context for HDI’s numbers")+
     kpi("MIN SAMPLE FOR A RATE",String((BM._suppression_rules&&BM._suppression_rules.min_sample_for_rate)||8),"below this, suppressed",null,{hi:true})+
   '</div>';
   h+='<div class="card"><div class="ch"><h3>Every benchmark, and where HDI sits</h3>'+
-    tag(approved?"live":"stub",approved?"Approved targets":"Reference only")+'</div><div class="cb">'+
-    '<table><thead><tr><th>Metric</th><th>Industry range</th><th>HDI now</th><th>Target</th></tr></thead><tbody>'+
+    tag("stub","Reference")+'</div><div class="cb">'+
+    '<table><thead><tr><th>Metric</th><th>Industry range</th><th>HDI now</th></tr></thead><tbody>'+
     keys.map(function(k){
       var b=BM[k],lo=b.industry_low!=null?b.industry_low:b.industry_reference,hi=b.industry_high;
       var rng=lo==null?"—":(hi!=null?lo+"–"+hi:String(lo));
@@ -1132,10 +1140,9 @@ function benchmarks(){
       var cur=b.hdi_current;
       var curTxt=cur==null?'<span class="dsh">not measurable</span>':
         '<span class="n">'+(b.unit==="usd"?"$"+cur:(b.unit==="percent"?cur+"%":cur))+'</span>';
-      return '<tr><td>'+esc(b.label)+'</td><td class="n">'+rng+'</td><td>'+curTxt+'</td>'+
-        '<td>'+(b.hdi_target!=null?'<span class="n">'+b.hdi_target+'</span>':'<span class="z">unapproved</span>')+'</td></tr>';
+      return '<tr><td>'+esc(b.label)+'</td><td class="n">'+rng+'</td><td>'+curTxt+'</td></tr>';
     }).join("")+'</tbody></table>'+
-    '<div class="foot warn">Every row marked unapproved shows as reference on this dashboard, not as a bar HDI is held to. That distinction is deliberate: an unapproved benchmark is context, an approved one is accountability.</div>'+
+    '<div class="foot">Industry ranges are shown for context, side by side with HDI’s current figure.</div>'+
     '<div class="foot">Do not use the widely-circulated "IT &amp; Services $369.88 / Healthcare $285.82" figures — they come from a 2017 survey still republished as current without disclosure.</div>'+
     '</div></div>';
   $("p-bm").innerHTML=h;

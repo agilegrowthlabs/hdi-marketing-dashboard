@@ -119,6 +119,11 @@ Rules specific to this panel:
 - Never hardcode the counts. If Clarity returns no bot field, the card must disappear, not
   show a stale/zero number.
 
+## BENCHMARKS TAB — no approval/target column
+The Benchmarks table shows Metric / Industry range / HDI now only. The old "Target" column and the
+"unapproved" verdict were REMOVED (Henry Aug 19: leadership doesn't need the internal approval state).
+Benchmarks are context shown beside HDI's figure — keep it neutral, no pass/fail.
+
 ## DO NOT REMOVE — THE LINKEDIN TAB + ACCUMULATING MANUAL UPLOAD (load-bearing)
 LinkedIn is a **manual upload with ACCUMULATING HISTORY** (schema 2). Data lives in
 **`data/linkedin.json`** → global **`LI`**, served at `/data/linkedin.json`, fetched in `load()`.
@@ -135,6 +140,10 @@ Shape: `seed_trends` (historical backfill reconstructed from the exec deck), `po
   over time"** table (union of every upload's posts) and a **"History is stored, not overwritten"**
   box showing the count of stored periods. Keep all of these.
 - Numbers come ONLY from `data/linkedin.json` — never hardcode LinkedIn metrics into index.html.
+- "Who engaged with my content" shows QUALIFIED EXTERNAL engagers only (Henry Aug 19): `linkedin()`
+  filters out HDI team members (title/company matches HDI / Health Data Innovations, or `internal:true`)
+  and job-seekers (`job_seeker:true`, an "open to work/seeking" title, or `reacted_post_type:"job"`),
+  plus any engager with `exclude:true`. Keep that filter; it's a sales-signal list, not a reaction dump.
 - `shell()` marks `m.linkedin="live"` when `LI` is present so the "never received an upload" banner
   does not fire. Keep that guard.
 - Verona confirmed LinkedIn is Phase 1. If the pipeline ever delivers a live feed, prefer
