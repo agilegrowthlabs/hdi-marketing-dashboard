@@ -140,6 +140,7 @@ tr.tot td{border-top:1px solid var(--border);font-weight:700;border-bottom:0}
 svg.cv{width:100%;height:auto;display:block;overflow:visible}
 .gl{stroke:var(--track);stroke-width:1}
 .axl{font-family:var(--m);font-size:8px;fill:var(--mute);letter-spacing:.05em}
+.axy{font-family:var(--m);font-size:8px;fill:var(--mute)}
 .ln{fill:none;stroke:var(--lime);stroke-width:2.5;stroke-linejoin:round}
 .bnd{fill:var(--track);opacity:.8}
 .bmk{stroke:var(--teal);stroke-width:1.5;stroke-dasharray:5 3;fill:none}
@@ -182,8 +183,7 @@ svg.cv{width:100%;height:auto;display:block;overflow:visible}
   <span class="seg" id="rangeSeg" role="group" aria-label="Preset time range"><button data-d="7">7d</button><button data-d="30" aria-pressed="true">30d</button><button data-d="90">90d</button><button data-d="0">All</button></span><span class="dr" role="group" aria-label="Custom date range"><label for="drFrom">From</label><input type="date" id="drFrom" aria-label="Start date"><span class="sepx">→</span><label for="drTo">To</label><input type="date" id="drTo" aria-label="End date"><button id="drApply" disabled>Apply</button></span><span class="rangeNow" id="rangeNow" aria-live="polite">—</span><button class="tog" id="botTog" aria-pressed="false" title="Clarity bot filter"><i></i>Include bots</button><button class="tog" id="pvTog" aria-pressed="false"><i></i>Preview layout</button>
 </div>
 
-<h1>Marketing performance, one source of truth.</h1>
-<p class="sub">Every figure is read live from the pipeline and tagged with its source. Nothing is estimated — a source with no data shows a dash, never a zero. Benchmarks show as reference until leadership approves them as targets.</p>
+<h1>Marketing performance</h1>
 
 <div class="alert red" id="alertRed"></div>
 <div class="alert amb" id="alertAmb"></div>
@@ -216,6 +216,7 @@ svg.cv{width:100%;height:auto;display:block;overflow:visible}
 "use strict";
 var API="/api/snapshots", BM_URL="/data/benchmarks.json", LI_URL="/data/linkedin.json";
 var S=null, BM=null, LI=null, PV=false, DAYS=30, HIST={ga4:null,clarity:null,linkedin:null,hubspot:null,ga4_agg:null};
+var LI_SORT="er", LI_DIR="desc", LI_MORE=false;  /* LinkedIn post-archive interactive sort/expand state */
 /* INCLBOTS: the Clarity bot filter. false (default) = show human-only traffic (Clarity
    already excludes bots from totalSessionCount); true = add bots back for an all-traffic
    view. Governs Clarity-scoped numbers only — GA4 applies its own server-side filtering
@@ -265,6 +266,14 @@ function channelLegend(names){
   (names||[]).forEach(function(n){if(n&&!seen[n]&&CHANNEL_DEF[n]){seen[n]=1;out.push("<b>"+esc(n)+"</b> — "+esc(CHANNEL_DEF[n]));}});
   if(!out.length)return "";
   return '<div class="foot">What these channels mean: '+out.join("; ")+'. <b>n</b> = number of sessions; the <b>%</b> on the right is that channel’s engagement rate (share of its sessions that were actively engaged).</div>';
+}
+/* A2 (Verona Aug 24): a plain colour-dot key for the engagement bars. */
+function benchDot(color){return '<span style="display:inline-block;width:11px;height:11px;border-radius:3px;background:'+color+';vertical-align:middle;margin-right:6px"></span>';}
+function benchLegend(){
+  return '<div class="foot" style="display:flex;gap:20px;flex-wrap:wrap;align-items:center">'+
+    '<span>'+benchDot("var(--lime)")+'clears the '+IB.engRate.lo+'–'+IB.engRate.hi+'% benchmark</span>'+
+    '<span>'+benchDot("var(--sage)")+'under the '+IB.engRate.lo+'–'+IB.engRate.hi+'% benchmark</span>'+
+    '</div>';
 }
 function earliestISO(){var min=null;["ga4","clarity","linkedin","hubspot"].forEach(function(src){var raw=RAW[src];if(!raw||!Array.isArray(raw.rows))return;raw.rows.forEach(function(r){var d=rowDate(r);if(d&&(!min||d<min))min=d;});});return min||shiftISO(todayISO(),-89);}
 function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
@@ -344,14 +353,27 @@ function trend(series,opts){
   var all=vs.concat(opts.benchmark!=null?[opts.benchmark,lo,hi]:[lo,hi]);
   var mn=Math.min.apply(null,all),mx=Math.max.apply(null,all),spn=(mx-mn)||1;
   mn-=spn*.1;mx+=spn*.1;spn=mx-mn;
+  /* clamp the axis floor at 0 for non-negative data (no "-6 sessions" from padding) */
+  if(Math.min.apply(null,vs)>=0&&mn<0){mn=0;spn=(mx-mn)||1;}
   var n=series.length;
   function px(i){return pl+(n<=1?0:i/(n-1)*iw);}
   function py(v){return pt+ih-(v-mn)/spn*ih;}
   var s='<rect class="bnd" x="'+pl+'" y="'+py(hi)+'" width="'+iw+'" height="'+Math.max(py(lo)-py(hi),1)+'"/>';
-  for(var g=0;g<=3;g++){var yy=pt+ih*g/3;s+='<line class="gl" x1="'+pl+'" y1="'+yy+'" x2="'+(w-pr)+'" y2="'+yy+'"/>';}
+  /* gridlines + Y-AXIS NUMBERS (Verona Aug 24 B1/C1 — every trend chart shows its scale) */
+  function axfmt(v){return opts.fmt?opts.fmt(Math.round(v)):num(Math.round(v));}
+  for(var g=0;g<=3;g++){var yy=pt+ih*g/3;s+='<line class="gl" x1="'+pl+'" y1="'+yy+'" x2="'+(w-pr)+'" y2="'+yy+'"/>';
+    var gv=mn+(1-g/3)*spn;
+    s+='<text class="axy" x="'+(pl-6)+'" y="'+(yy+3)+'" text-anchor="end">'+esc(axfmt(gv))+'</text>';
+  }
+  /* optional prior-period overlay (Verona Aug 24 B2 — see whether the new site is moving) */
+  if(opts.prior&&opts.prior.length){
+    var pd='',pst=false;
+    opts.prior.forEach(function(v,i){if(v==null||i>=n)return;pd+=(pst?"L":"M")+px(i)+" "+py(v);pst=true;});
+    if(pd)s+='<path d="'+pd+'" fill="none" stroke="var(--taupe)" stroke-width="1.5" stroke-dasharray="3 3" opacity="0.7"/>';
+  }
   if(opts.benchmark!=null){
     s+='<line class="bmk" x1="'+pl+'" y1="'+py(opts.benchmark)+'" x2="'+(w-pr)+'" y2="'+py(opts.benchmark)+'"/>';
-    s+='<text class="axl" x="'+(pl-6)+'" y="'+(py(opts.benchmark)+3)+'" text-anchor="end" fill="var(--teal)">'+esc(opts.benchmarkLabel||"target")+'</text>';
+    s+='<text class="axl" x="'+(w-pr-4)+'" y="'+(py(opts.benchmark)-4)+'" text-anchor="end" fill="var(--teal)">'+esc(opts.benchmarkLabel||"target")+'</text>';
   }
   var d='',started=false;
   series.forEach(function(p,i){if(p.v==null)return;d+=(started?"L":"M")+px(i)+" "+py(p.v);started=true;});
@@ -737,10 +759,10 @@ function website(){
     '</div>'+
     '<div class="card" style="margin-top:-2px;margin-bottom:12px;background:var(--tealb);border-color:#CFE3DF"><div class="cb" style="padding:11px 14px"><div class="foot" style="margin:0;border:0;padding:0;color:var(--teal)"><b>What “engagement rate” means:</b> the share of visits where the person actively engaged — stayed longer than 10 seconds, viewed more than one page, or triggered a tracked action (a click, form, or download). It’s a <b>quality</b> measure — of everyone who arrived, how many actually paid attention — not just a headcount. Higher is better.</div></div></div>';
 
-    var t=trend(gd.map(function(x){return {label:(x.date||"").slice(5),v:x.sessions};}),{trendline:true});
+    var t=trend(gd.map(function(x){return {label:(x.date||"").slice(5),v:x.sessions};}),{trendline:true,prior:(W2&&W2.hasPrior)?W2.pri.map(function(d){return d.sessions;}):null});
     var lastV=gd[gd.length-1].sessions;
     h+='<div class="card"><div class="ch"><h3>Sessions over time</h3>'+
-      '<span class="note">grey band is the usual range</span>'+srcTag(g,"GA4")+'</div><div class="cb">'+
+      '<span class="note">grey band = usual range · lime = this period · taupe dashes = prior period</span>'+srcTag(g,"GA4")+'</div><div class="cb">'+
       (t?t.svg:building("GA4",gd.length))+
       (t?'<div class="foot'+(lastV>=t.lo&&lastV<=t.hi?"":" warn")+'">'+
         (lastV>=t.lo&&lastV<=t.hi
@@ -757,6 +779,7 @@ function website(){
         bars(chS.map(function(c){var m=c.er>=IB.engRate.lo;return [c.channel+" · n="+num(c.sessions),c.er,m?"var(--lime)":"var(--sage)",c.er+"%",null,m?" ok":""];}),100)+
         '<div class="foot"><b>'+top2.map(function(c){return esc(c.channel)+" ("+Math.round(c.sessions/totS*100)+"% of sessions)";}).join(", ")+'</b> drive most of the traffic. '+
         (chS[0]?"On the biggest channel ("+esc(chS[0].channel)+") engagement is "+(benchPos(chS[0].er,IB.engRate.lo,IB.engRate.hi).warn?"below":"at/above")+" the "+IB.engRate.lo+"–"+IB.engRate.hi+"% benchmark ("+chS[0].er+"%).":"")+'</div>'+
+        benchLegend()+
         channelLegend(chS.map(function(c){return c.channel;}))+
         '<div class="foot">To see <b>which pages each channel sends people to</b> — the driver behind each channel — the GA4 pull needs one more report (landing-page × channel). Flagged for the data layer; not in the feed yet. The landing-pages panel below is the closest current view of what\'s driving sessions.</div>'+
         '</div></div>';
@@ -807,7 +830,7 @@ function website(){
     var topB=(ct&&ct.buckets[0])||null;
     var win=cw?winDesc():(ct&&ct.window_days?("last "+ct.window_days+(ct.window_days===1?" day":" days")):"latest window");
     var devTxt=(ct&&ct.botDevices.length)?ct.botDevices.slice(0,2).map(function(x){return x.label;}).join(", "):"";
-    h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Traffic quality · Clarity</h3>'+
+    h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Human vs bot traffic · Clarity</h3>'+
       '<span class="note">'+esc(win)+' · human vs bot</span>'+srcTag(c,"Clarity")+'</div><div class="cb">'+
       '<div class="kpis" style="margin-bottom:12px">'+
         kpi("HUMAN SESSIONS",num(qReal),"real visitors Clarity tracked",null,mix(sp(),{hi:true}))+
@@ -893,6 +916,10 @@ function blog(){
   function blogURL(pth){var p=norm(pth);if(p.indexOf("/resources/")===0||p.indexOf("/blog/")===0)return SITE_URL+p;return SITE_URL+"/resources/"+p.replace(/^\//,"");}
   function title(pth){var p=norm(pth).replace(/^\/(resources|blog)\//,"").replace(/^\//,"");if(!p)return "(home)";p=p.replace(/-/g," ");return p.charAt(0).toUpperCase()+p.slice(1);}
   function blogLink(pth){return '<a href="'+esc(blogURL(pth))+'" target="_blank" rel="noopener" style="color:var(--teal);border-bottom:1px solid var(--sage);text-decoration:none">'+esc(title(pth))+'</a>';}
+  /* D1: truncate at a word boundary (no mid-word cut). D2/D3: suppress engagement % on tiny samples. */
+  function shortTitle(pth,max){var t=title(pth);if(t.length<=max)return t;var cut=t.slice(0,max);var sp=cut.lastIndexOf(" ");return (sp>10?cut.slice(0,sp):cut)+"…";}
+  var ER_MIN=5; /* below this many sessions, an engagement rate isn't meaningful */
+  function erTxt(x){return num(x.sessions)+(x.sessions>=ER_MIN?" · "+x.er+"% eng":" · too few to rate");}
 
   var posts=lp.filter(function(x){return isBlogPath(x.landing_page);})
     .map(function(x){return {path:x.landing_page,sessions:x.sessions||0,er:x.er||0};})
@@ -908,23 +935,23 @@ function blog(){
     '<div class="kpis" style="margin-top:14px">'+
       kpi("POSTS WITH TRAFFIC",String(posts.length),"individual posts tracked this range",null,mix(sp(),{hi:true}))+
       kpi("TOTAL BLOG SESSIONS",num(totalSess),"across all posts in range",null,sp())+
-      kpi("TOP POST",top?esc(title(top.path)).slice(0,22):"—",top?num(top.sessions)+" sessions":"no post traffic in range",null,sp())+
+      kpi("TOP POST",top?esc(shortTitle(top.path,26)):"—",top?num(top.sessions)+" sessions":"no post traffic in range",null,sp())+
       kpi("RESOURCES HUB VIEWS",hub?num(hub.views):"—","/resources — the page listing all posts",null,sp())+
     '</div>'+srcTag(g,"GA4")+'</div></div>';
 
   if(posts.length){
     var pmax=posts[0].sessions||1;
     h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Top blog posts — what\'s performing</h3><span class="note">'+esc(span)+' · bar = sessions · % = engagement rate · click to open</span>'+srcTag(g,"GA4")+'</div><div class="cb">'+
-      bars(posts.slice(0,15).map(function(x,i){var m=x.er>=IB.engRate.lo;return [title(x.path),x.sessions,i===0?"var(--lime)":"var(--sage)",num(x.sessions)+" · "+x.er+"% eng",null,"",blogLink(x.path)];}),pmax)+
+      bars(posts.slice(0,15).map(function(x,i){return [title(x.path),x.sessions,i===0?"var(--lime)":"var(--sage)",erTxt(x),null,"",blogLink(x.path)];}),pmax)+
       '<div class="foot">Ranked by sessions over '+esc(span)+' — the posts earning the most attention are the ones to amplify and build follow-ups around. Engagement rate flags which of them actually hold readers. Click any post to open it.</div>'+
       '</div></div>';
 
     /* worst / lowest-traction, for "what's not working" */
     if(posts.length>3){
       var lowest=posts.slice().sort(function(a,b){return a.sessions-b.sessions;}).slice(0,5);
-      h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Lowest-traction posts</h3><span class="note">'+esc(span)+' · fewest sessions · candidates to refresh or retire</span>'+srcTag(g,"GA4")+'</div><div class="cb">'+
-        bars(lowest.map(function(x){return [title(x.path),x.sessions,"var(--taupe)",num(x.sessions)+" · "+x.er+"% eng",null,"",blogLink(x.path)];}),pmax)+
-        '<div class="foot">These posts drew the least traffic in range. Low sessions can mean a weak topic, thin distribution, or an older post that has faded — worth a look before publishing more like them.</div>'+
+      h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Lowest-traffic posts</h3><span class="note">'+esc(span)+' · fewest sessions</span>'+srcTag(g,"GA4")+'</div><div class="cb">'+
+        bars(lowest.map(function(x){return [title(x.path),x.sessions,"var(--taupe)",erTxt(x),null,"",blogLink(x.path)];}),pmax)+
+        '<div class="foot">Ranked by <b>traffic</b> (sessions), not engagement — at these small sample sizes the engagement percentages are too close to separate meaningfully (a 0% on a 3-visitor post is a data artifact, not a real result), so treat them as "not enough traffic yet" rather than "worst posts." Low traffic can mean a weak topic, thin distribution, or an older post fading.</div>'+
         '</div></div>';
     }
   } else {
@@ -990,7 +1017,16 @@ function linkedin(){
     kpi("SEARCH APPEARANCES",num(o(F.search_appearances).value),dpct(F.search_appearances),esc(o(F.search_appearances).window||"in search results"),mix(sp(),dcls(F.search_appearances)))+
     '</div></div></div>';
 
-  /* ---- TREND: followers over time (seed history + every upload) ---- */
+  /* row renderer for post tables */
+  function postRow(p,showPeriod){var title=esc(p.title||"");
+    return '<tr>'+
+      '<td style="max-width:320px"><div style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+title+'">'+title+'</div>'+
+      '<div style="color:var(--mute);font-size:10px">'+esc(p.by||"")+' · '+esc(p.date||"")+(showPeriod&&p._month?' · '+esc(p._month):'')+'</div></td>'+
+      '<td>'+esc(p.type||"—")+'</td><td class="n">'+num(p.impressions)+'</td><td class="n">'+(p.clicks!=null?num(p.clicks):"—")+'</td>'+
+      '<td class="n">'+(p.ctr!=null?p.ctr+"%":"—")+'</td><td class="n">'+(p.reactions!=null?p.reactions:"—")+'</td>'+
+      '<td class="n">'+(p.reposts!=null?p.reposts:"—")+'</td><td class="n"><b>'+(p.er!=null?p.er+"%":"—")+'</b></td></tr>';}
+
+  /* ============ AUDIENCE GROUP (followers, visitors, demographics together) ============ */
   var folSeries=(seed.followers_monthly||[]).concat(ups.map(function(u){return [u.month||u.period,o(u.followers).total];}));
   if(folSeries.length>1){
     var tf=trend(ser(folSeries),{trendline:true});
@@ -999,8 +1035,21 @@ function linkedin(){
       '<div class="foot"><b>181 → '+num(F.total)+'</b> ('+(F.since_start_pct?"+"+F.since_start_pct+"%":"")+' since Aug ’24). Each new monthly upload adds a real point on the right — the line keeps growing on its own.</div>'+
       '</div></div>';
   }
+  if((seed.visitors_monthly||[]).length>1){
+    var tv=trend(ser(seed.visitors_monthly),{trendline:true});
+    h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Unique visitors over time</h3><span class="note">monthly · dashed = trend · historical through May ’26</span>'+upTag+'</div><div class="cb">'+(tv?tv.svg:"")+
+      '<div class="foot">Page visitors trend up over the window, peaking <b>196 (Feb ’26)</b>. Extends once visitor counts are included in the monthly upload.</div></div></div>';
+  }
+  var loc=cur.demographics_location||[];
+  if(loc.length){
+    var lmax=loc.reduce(function(a,x){return Math.max(a,x.value||0);},0)||1;
+    h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Follower demographics · location</h3><span class="note">top metro areas · share of followers</span>'+upTag+'</div><div class="cb">'+
+      bars(loc.map(function(x,i){return [x.label,x.value,i===0?"var(--lime)":"var(--sage)",x.value+" · "+x.pct+"%"];}),lmax)+
+      '<div class="foot">Where followers concentrate — useful for event, regional-campaign and ABM targeting.</div>'+
+      '</div></div>';
+  }
 
-  /* ---- TREND: engagement rate over time (seed + uploads' computed rate) ---- */
+  /* ============ ENGAGEMENT GROUP (engagement metrics together) ============ */
   var engSeed=(seed.engagement_monthly||[]).concat(ups.filter(function(u){return u.engagement_rate!=null;}).map(function(u){return [u.month||u.period,u.engagement_rate];}));
   if(engSeed.length>1){
     var te=trend(ser(engSeed),{trendline:true,benchmark:(B.company_high||3),benchmarkLabel:"industry "+(B.company_low||1)+"–"+(B.company_high||3)+"%",fmt:function(v){return v+"%";}});
@@ -1009,16 +1058,12 @@ function linkedin(){
       '<div class="foot">HDI averages well above the '+(B.company_low||1)+'–'+(B.company_high||3)+'% industry range — roughly <b>4×</b> a typical B2B company page. Each upload extends this line with that month’s actual rate.</div>'+
       '</div></div>';
   }
-
-  /* ---- TREND: impressions per period (uploads only — grows) ---- */
   var impSeries=ups.map(function(u){return [u.month||u.period,o(o(u.profile).impressions).value];});
   if(impSeries.length>1){
     var ti=trend(ser(impSeries),{trendline:true});
     h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Impressions per month</h3><span class="note">one point per upload · dashed = trend</span>'+upTag+'</div><div class="cb">'+(ti?ti.svg:"")+
       '<div class="foot">Total reach each reporting period. This line builds one point per monthly upload.</div></div></div>';
   }
-
-  /* ---- Engagement by content type ---- */
   var pt=(L.post_types||[]).slice().sort(function(a,b){return b.er-a.er;});
   if(pt.length){
     var ptMax=pt[0].er||1, best=pt[0], worst=pt[pt.length-1];
@@ -1027,15 +1072,6 @@ function linkedin(){
       '<div class="foot"><b>Best: '+esc(best.type)+' ('+best.er.toFixed(1)+'%)</b>; carousels, jobs and video lead. <b>Worst: '+esc(worst.type)+' ('+worst.er.toFixed(1)+'%)</b> — yet single images are <b>n='+worst.n+'</b>, most of what’s published. <b>The lever is the mix:</b> more carousels, documents and video; fewer single images.</div>'+
       '</div></div>';
   }
-
-  /* ---- Unique visitors over time (historical seed) ---- */
-  if((seed.visitors_monthly||[]).length>1){
-    var tv=trend(ser(seed.visitors_monthly),{trendline:true});
-    h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Unique visitors over time</h3><span class="note">monthly · dashed = trend · historical through May ’26</span>'+upTag+'</div><div class="cb">'+(tv?tv.svg:"")+
-      '<div class="foot">Page visitors trend up over the window, peaking <b>196 (Feb ’26)</b>. Extends once visitor counts are included in the monthly upload.</div></div></div>';
-  }
-
-  /* ---- HDI vs industry benchmark ---- */
   if(B.hdi!=null){
     h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>HDI vs industry benchmark</h3><span class="note">avg engagement rate · bars scaled to HDI’s '+B.hdi+'%</span>'+upTag+'</div><div class="cb">'+
       bars([
@@ -1049,64 +1085,33 @@ function linkedin(){
   }
 
   /* ---- Content engagement (latest period) ---- */
-  function postRows(list,showPeriod){return list.map(function(p){var title=esc(p.title||"");
-    return '<tr>'+
-      '<td style="max-width:320px"><div style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+title+'">'+title+'</div>'+
-      '<div style="color:var(--mute);font-size:10px">'+esc(p.by||"")+' · '+esc(p.date||"")+(showPeriod&&p._month?' · '+esc(p._month):'')+'</div></td>'+
-      '<td>'+esc(p.type||"—")+'</td><td class="n">'+num(p.impressions)+'</td><td class="n">'+(p.clicks!=null?num(p.clicks):"—")+'</td>'+
-      '<td class="n">'+(p.ctr!=null?p.ctr+"%":"—")+'</td><td class="n">'+(p.reactions!=null?p.reactions:"—")+'</td>'+
-      '<td class="n">'+(p.reposts!=null?p.reposts:"—")+'</td><td class="n"><b>'+(p.er!=null?p.er+"%":"—")+'</b></td></tr>';}).join("");}
   if(posts.length){
     var byEr=posts.slice().sort(function(a,b){return (b.er||0)-(a.er||0);});
     var top=byEr[0], low=byEr[byEr.length-1];
     h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Content engagement · this period</h3><span class="note">'+period+' · every post</span>'+upTag+'</div><div class="cb" style="overflow-x:auto">'+
-      '<table><thead><tr><th>Post</th><th>Type</th><th>Impr.</th><th>Clicks</th><th>CTR</th><th>Reactions</th><th>Reposts</th><th>Eng. rate</th></tr></thead><tbody>'+postRows(posts)+'</tbody></table>'+
+      '<table><thead><tr><th>Post</th><th>Type</th><th>Impr.</th><th>Clicks</th><th>CTR</th><th>Reactions</th><th>Reposts</th><th>Eng. rate</th></tr></thead><tbody>'+posts.map(function(p){return postRow(p);}).join("")+'</tbody></table>'+
       '<div class="foot"><b>Best this period:</b> “'+esc((top.title||"").slice(0,58))+'” ('+top.type+', '+top.er+'%). <b>Weakest:</b> “'+esc((low.title||"").slice(0,58))+'” ('+low.type+', '+low.er+'%).</div>'+
       '</div></div>';
   }
 
-  /* ---- Individual post performance over time — the ARCHIVE across all uploads ---- */
+  /* ---- Post archive — sortable + expandable (Verona Aug 24 C3) ---- */
   var archive=[];
   ups.forEach(function(u){(u.posts||[]).forEach(function(p){var c=Object.assign({},p);c._month=u.month||u.period;archive.push(c);});});
   var storedPeriods=ups.length;
   if(archive.length){
-    var archTop=archive.slice().sort(function(a,b){return (b.er||0)-(a.er||0);}).slice(0,12);
-    h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Post archive — individual performance over time</h3><span class="note">'+archive.length+' post'+(archive.length===1?"":"s")+' across '+storedPeriods+' period'+(storedPeriods===1?"":"s")+' · top by engagement</span>'+upTag+'</div><div class="cb" style="overflow-x:auto">'+
-      '<table><thead><tr><th>Post</th><th>Type</th><th>Impr.</th><th>Clicks</th><th>CTR</th><th>Reactions</th><th>Reposts</th><th>Eng. rate</th></tr></thead><tbody>'+postRows(archTop,true)+'</tbody></table>'+
-      '<div class="foot"><b>Every post from every upload is kept here.</b> As more months are uploaded this becomes the running record of individual post performance — which topics and formats win over time, not just this month. '+(storedPeriods===1?"Right now it holds this first period; it grows automatically with each upload.":"Spanning "+storedPeriods+" periods so far.")+'</div>'+
-      '</div></div>';
-  }
-
-  /* ---- Who engaged ---- */
-  /* Qualified external engagers only — filter out HDI's own team and job-seekers (Henry Aug 19).
-     Internal = title/company names HDI; job-seeker = "open to work"/"seeking" or reacted to a Job post.
-     Honors explicit e.internal / e.job_seeker / e.exclude flags in the data too. */
-  var HDI_RX=/health data innovations|hd-innovations|(^|[^a-z])hdi([^a-z]|$)/i;
-  var JOB_RX=/open to work|#?opentowork|seeking|looking for (a |an |my )?(new )?(role|job|position|opportunit)/i;
-  function isInternal(e){return e.internal===true||HDI_RX.test((e.title||"")+" "+(e.company||""));}
-  function isJobSeeker(e){return e.job_seeker===true||(e.reacted_post_type||"").toLowerCase()==="job"||JOB_RX.test(e.title||"");}
-  var engAll=cur.engagers||[];
-  var eng=engAll.filter(function(e){return !e.exclude && !isInternal(e) && !isJobSeeker(e);});
-  var filteredOut=engAll.length-eng.length;
-  h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Who engaged with my content</h3><span class="note">qualified external engagers · team &amp; job-seekers filtered out</span>'+upTag+'</div><div class="cb">'+
-    (eng.length?
-      eng.map(function(e){var init=(e.name||"?").split(/\s+/).map(function(w){return w.charAt(0);}).slice(0,2).join("").toUpperCase();
-        return '<div style="display:flex;gap:12px;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--line)">'+
-          '<div style="flex:0 0 auto;width:40px;height:40px;border-radius:50%;background:var(--teal);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px">'+esc(init)+'</div>'+
-          '<div style="min-width:0"><div style="font-weight:600">'+esc(e.name||"")+(e.company?' <span style="color:var(--mute);font-weight:400;font-size:12px">· '+esc(e.company)+'</span>':'')+'</div><div style="color:var(--mute);font-size:12px">'+esc(e.title||"")+'</div>'+
-          (e.action?'<div style="font-size:12px;margin-top:2px">'+esc(e.action)+'</div>':'')+'</div></div>';
-      }).join("")
-      : empty("No qualified external engagers this period","Everyone who engaged this period was either on the HDI team or a job-seeker, so none surfaced here. Qualified prospects appear as they engage in future periods."))+
-    '<div class="foot">External people who reacted to or commented on HDI posts — <b>warm signals for sales follow-up</b>. HDI team members and job-seekers are filtered out automatically'+(filteredOut>0?' ('+filteredOut+' hidden this period)':'')+'.</div>'+
-    '</div></div>';
-
-  /* ---- Follower demographics: location ---- */
-  var loc=cur.demographics_location||[];
-  if(loc.length){
-    var lmax=loc.reduce(function(a,x){return Math.max(a,x.value||0);},0)||1;
-    h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Follower demographics · location</h3><span class="note">top metro areas · share of followers</span>'+upTag+'</div><div class="cb">'+
-      bars(loc.map(function(x,i){return [x.label,x.value,i===0?"var(--lime)":"var(--sage)",x.value+" · "+x.pct+"%"];}),lmax)+
-      '<div class="foot">Where followers concentrate — useful for event, regional-campaign and ABM targeting.</div>'+
+    var COLS=[{k:"type",l:"Type",t:false},{k:"impressions",l:"Impr."},{k:"clicks",l:"Clicks"},{k:"ctr",l:"CTR"},{k:"reactions",l:"Reactions"},{k:"reposts",l:"Reposts"},{k:"er",l:"Eng. rate"}];
+    var sorted=archive.slice().sort(function(a,b){
+      var va=a[LI_SORT],vb=b[LI_SORT];
+      if(LI_SORT==="type"){va=(va||"").toLowerCase();vb=(vb||"").toLowerCase();return LI_DIR==="asc"?(va<vb?-1:va>vb?1:0):(va>vb?-1:va<vb?1:0);}
+      va=va==null?-1:va;vb=vb==null?-1:vb;return LI_DIR==="asc"?va-vb:vb-va;
+    });
+    var shown=LI_MORE?sorted:sorted.slice(0,10);
+    var arrow=function(k){return LI_SORT===k?(LI_DIR==="asc"?" ▲":" ▼"):"";};
+    var ths='<th>Post</th>'+COLS.map(function(c){return '<th style="cursor:pointer;user-select:none" onclick="LIsort(\''+c.k+'\')">'+c.l+esc(arrow(c.k))+'</th>';}).join("");
+    h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Post archive — every post, sortable</h3><span class="note">'+archive.length+' post'+(archive.length===1?"":"s")+' across '+storedPeriods+' period'+(storedPeriods===1?"":"s")+' · click a column to sort</span>'+upTag+'</div><div class="cb" style="overflow-x:auto">'+
+      '<table><thead><tr>'+ths+'</tr></thead><tbody>'+shown.map(function(p){return postRow(p,true);}).join("")+'</tbody></table>'+
+      (archive.length>10?'<div style="text-align:center;margin-top:10px"><button onclick="LImore()" style="font-family:var(--m);font-size:11px;letter-spacing:.05em;padding:7px 16px;border:1px solid var(--line);border-radius:20px;background:#fff;color:var(--teal);cursor:pointer">'+(LI_MORE?"Show top 10":"See all "+archive.length+" posts")+'</button></div>':"")+
+      '<div class="foot">Sort by engagement rate, impressions, clicks, CTR, reactions or reposts. <b>Every post from every upload is kept here</b> — as more months load, this is the running record of what wins over time.</div>'+
       '</div></div>';
   }
 
@@ -1117,6 +1122,9 @@ function linkedin(){
 
   $("p-li").innerHTML=h;
 }
+/* LinkedIn post-archive interactive controls (global for inline onclick) */
+window.LIsort=function(col){ if(LI_SORT===col){LI_DIR=(LI_DIR==="desc"?"asc":"desc");} else {LI_SORT=col;LI_DIR=(col==="type"?"asc":"desc");} linkedin(); };
+window.LImore=function(){ LI_MORE=!LI_MORE; linkedin(); };
 
 /* ================= BENCHMARKS ================= */
 function benchmarks(){
@@ -1294,9 +1302,9 @@ function insights(){
     srcTag(S.sources.ga4,"GA4")+'</div></div>';
 
   /* ---------- TRAFFIC TREND (with dashed trend line) ---------- */
-  var t=trend(cur.map(function(d){return {label:(d.date||"").slice(5),v:d.sessions};}),{trendline:true});
+  var t=trend(cur.map(function(d){return {label:(d.date||"").slice(5),v:d.sessions};}),{trendline:true,prior:(W&&W.hasPrior)?W.pri.map(function(d){return d.sessions;}):null});
   h+='<div class="card" style="margin-bottom:12px"><div class="ch"><h3>Traffic trend</h3>'+
-    '<span class="note">GA4 sessions per day · dashed = overall trend · grey band = usual range · '+esc(span)+'</span>'+srcTag(S.sources.ga4,"GA4")+'</div><div class="cb">'+
+    '<span class="note">GA4 sessions per day · dashed teal = overall trend · taupe dashes = prior period · '+esc(span)+'</span>'+srcTag(S.sources.ga4,"GA4")+'</div><div class="cb">'+
     (t?t.svg:building("GA4",n))+
     '<div class="kpis" style="margin-top:12px">'+
       kpi("VS PRIOR PERIOD",pctTxt(mom),mom!=null?(num(s30)+" vs "+num(s30p)+" sessions"):"no prior period in range",null,mix(sp(),mom==null?{}:(mom<0?{warn:true}:{ok:true})))+
@@ -1320,6 +1328,7 @@ function insights(){
       bars(chArr.map(function(c){var meets=c.er>=IB.engRate.lo;return [c.channel+" · n="+num(c.sessions),c.er,meets?"var(--lime)":"var(--sage)",c.er+"%",null,meets?" ok":""];}),100)+
       '<div class="foot">'+(topCh?"<b>"+esc(topCh.channel)+"</b> is the largest channel (n="+num(topCh.sessions)+") but engages at just "+topCh.er+"%, dragging the overall rate down. ":"")+
       (goodCh.length?"<b>"+goodCh.map(function(c){return esc(c.channel)+" ("+c.er+"%)";}).join(", ")+"</b> already meet the "+IB.engRate.lo+"–"+IB.engRate.hi+"% benchmark — growing them lifts quality.":"")+'</div>'+
+      benchLegend()+
       channelLegend(chArr.map(function(c){return c.channel;}))+
       '</div></div>';
   }
@@ -1357,7 +1366,7 @@ function insights(){
   var cdays=Object.keys(byd).filter(function(d){return d>=WIN.start&&d<=WIN.end;}).sort().map(function(k){return byd[k];});
   if(cdays.length){
     var rowsH=cdays.map(function(x){var tot=x.human+x.bot;return '<tr><td>'+esc(x.date)+'</td><td class="n">'+x.human+'</td><td class="z">'+x.bot+'</td><td class="n">'+tot+'</td></tr>';}).join("");
-    h+='<div class="card" style="margin-bottom:12px"><div class="ch"><h3>Traffic quality over time · Clarity</h3>'+
+    h+='<div class="card" style="margin-bottom:12px"><div class="ch"><h3>Traffic over time · Clarity</h3>'+
       '<span class="note">'+esc(winDesc())+' · '+cdays.length+' day'+(cdays.length===1?"":"s")+' with data</span>'+srcTag(S.sources.clarity,"Clarity")+'</div><div class="cb">'+
       '<table><thead><tr><th>Date</th><th>Human</th><th>Bot</th><th>Total</th></tr></thead><tbody>'+rowsH+'</tbody></table>'+
       '<div class="foot ok">These are Clarity\'s behaviour-sample counts (dozens), not total site traffic — see "How to read GA4 vs Clarity" above. Clarity only serves the last 72 hours, so this history exists only because the pipeline stores each day into our own database. It cannot be backfilled before the first stored day — it grows forward one point per day.</div>'+

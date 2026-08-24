@@ -15,8 +15,36 @@ leaves CLAUDE.md stale is an incomplete change. When you add a "DO NOT REMOVE" e
 add a matching block here; when you change the data shape a panel depends on, update its
 rule and its verify step.
 
-Last substantive update: 2026-08-14 — date-range controls, Traffic-quality (bot) panel,
-Insights tab + Clarity bot-filter toggle.
+Last substantive update: 2026-08-24 — Verona 1:1 dashboard changes (below).
+
+## AUG 24 (Verona 1:1) — load-bearing changes, do not regress
+- **`trend()` now draws Y-AXIS NUMBERS** on every chart (`.axy` labels at each gridline via
+  `axfmt`). Critical per Verona ("could be 10 or 1,000"). Also supports **`opts.prior`** — a
+  taupe dashed prior-period overlay line — and **clamps the axis floor at 0** for non-negative
+  data (no "-6 sessions"). Keep all three.
+- **Prior-period overlay** is wired on the Insights traffic-trend and Website "Sessions over
+  time" charts via `opts.prior = W.pri.map(d=>d.sessions)`.
+- **Header title is just "Marketing performance"** (the "one source of truth" subtitle was
+  removed — the integrity note still lives in the page footer).
+- **`benchLegend()`** (lime = clears benchmark / sage = under benchmark colour dots) sits under
+  both channel-engagement charts. Keep it.
+- **"Traffic quality" renamed:** the Website human/bot panel is **"Human vs bot traffic ·
+  Clarity"**; the Insights stored-history one is **"Traffic over time · Clarity"** (it's a
+  quantity chart, not a quality score).
+- **LinkedIn tab reordered** into an AUDIENCE group (followers over time → unique visitors →
+  demographics) then an ENGAGEMENT group (engagement rate → impressions → by content type →
+  benchmark) — engagement and audience are no longer interleaved.
+- **LinkedIn "Who engaged with my content" REMOVED** (Verona: HubSpot handles prospect
+  qualification). Do not re-add it; the engager-filter code is gone.
+- **LinkedIn post archive is sortable + expandable:** globals `LI_SORT`/`LI_DIR`/`LI_MORE`,
+  clickable column headers call `window.LIsort(col)`, "See all" calls `window.LImore()`. Keep
+  the window.* handlers (inline onclick needs them global).
+- **Blog:** `erTxt()` suppresses the engagement % on posts with < 5 sessions (shows "too few to
+  rate" — a 0% on 3 visitors is noise, not a result); the low list is "Lowest-**traffic** posts"
+  ranked by sessions with a small-sample caveat; `shortTitle()` truncates titles at a word
+  boundary (no mid-word cut).
+- STILL PENDING (needs data from Verona): 2-year GA backfill; LinkedIn historical follower +
+  post-level spreadsheets. And organic search-terms drill-down needs Google Search Console.
 
 ## STATUS — READ THIS FIRST
 - Live at https://hdi-marketing-dashboard.netlify.app and the code on `main` matches it
