@@ -146,6 +146,15 @@ svg.cv{width:100%;height:auto;display:block;overflow:visible}
 .bmk{stroke:var(--teal);stroke-width:1.5;stroke-dasharray:5 3;fill:none}
 .dt{fill:var(--teal)}
 .vl{font-family:var(--m);font-size:10px;fill:var(--teal);font-weight:600}
+svg.cv{cursor:crosshair}
+.hovln{stroke:var(--ink);stroke-width:1;stroke-dasharray:2 2;opacity:.35;pointer-events:none}
+.hovdt{fill:var(--teal);stroke:#fff;stroke-width:1.5;pointer-events:none}
+.hovdt.pp{fill:var(--taupe)}
+.cvtip{position:fixed;z-index:60;pointer-events:none;background:var(--ink);color:#fff;font-family:var(--m);font-size:11px;line-height:1.45;padding:7px 9px;border-radius:7px;box-shadow:0 6px 18px rgba(0,0,0,.20);transform:translate(-50%,calc(-100% - 10px));white-space:nowrap;opacity:0;transition:opacity .07s;max-width:60vw}
+.cvtip.on{opacity:1}
+.cvtip .vv{color:var(--lime);font-weight:600;font-size:12.5px}
+.cvtip .dd{color:#cfd8d6}
+.cvtip .pp{color:var(--sage)}
 
 .take{background:var(--teal);border-radius:8px;padding:17px 19px;color:#fff}
 .take .u{color:var(--lime);display:block;margin-bottom:8px}
@@ -396,8 +405,54 @@ function trend(series,opts){
   }
   var step=Math.max(1,Math.ceil(n/7));
   for(var t=0;t<n;t+=step)s+='<text class="axl" x="'+px(t)+'" y="'+(h-8)+'" text-anchor="middle">'+esc(series[t].label)+'</text>';
-  return {svg:'<svg class="cv" viewBox="0 0 '+w+' '+h+'" preserveAspectRatio="none">'+s+'</svg>',lo:lo,hi:hi,last:pts[pts.length-1]};
+  /* per-point data so a shared hover handler can show the true number on any chart */
+  var HP=[];
+  series.forEach(function(p,i){
+    if(p.v==null)return;
+    var pr=(opts.prior&&opts.prior[i]!=null)?opts.prior[i]:null;
+    HP.push({x:+px(i).toFixed(1),y:+py(p.v).toFixed(1),l:series[i].label,
+      vt:(opts.fmt?opts.fmt(p.v):num(p.v)),
+      pt:(pr!=null?(opts.fmt?opts.fmt(pr):num(pr)):null),
+      py:(pr!=null?+py(pr).toFixed(1):null)});
+  });
+  var meta=' data-hp="'+encodeURIComponent(JSON.stringify(HP))+'" data-top="'+pt+'" data-bot="'+(pt+ih)+'"'+
+    (opts.hoverName?' data-name="'+esc(opts.hoverName)+'"':'');
+  return {svg:'<svg class="cv" viewBox="0 0 '+w+' '+h+'" preserveAspectRatio="none"'+meta+'>'+s+'<g class="hovg"></g></svg>',lo:lo,hi:hi,last:pts[pts.length-1]};
 }
+/* ---------- shared chart hover: true number on any trend() chart ---------- */
+(function(){
+  if(window.__cvhov)return; window.__cvhov=1;
+  var tip=null;
+  function getTip(){ if(!tip){ tip=document.createElement('div'); tip.className='cvtip'; document.body.appendChild(tip); } return tip; }
+  function hide(svg){ if(tip)tip.classList.remove('on'); if(svg){var g=svg.querySelector('.hovg'); if(g)g.innerHTML='';} }
+  function svgEl(tag,attrs){ var e=document.createElementNS('http://www.w3.org/2000/svg',tag); for(var k in attrs)e.setAttribute(k,attrs[k]); return e; }
+  document.addEventListener('mousemove',function(e){
+    var svg=e.target&&e.target.closest?e.target.closest('svg.cv'):null;
+    if(!svg){ if(tip&&tip.classList.contains('on'))hide(); return; }
+    var hp=svg.__hp; if(hp===undefined){ try{hp=JSON.parse(decodeURIComponent(svg.getAttribute('data-hp')||'')||'[]');}catch(_){hp=[];} svg.__hp=hp; }
+    if(!hp||!hp.length){ hide(svg); return; }
+    var rect=svg.getBoundingClientRect(); if(!rect.width)return;
+    var vbx=(e.clientX-rect.left)/rect.width*780;              /* viewBox is 780 wide; preserveAspectRatio=none => linear X */
+    var best=0,bd=1e9; for(var i=0;i<hp.length;i++){var dx=Math.abs(hp[i].x-vbx); if(dx<bd){bd=dx;best=i;}}
+    var p=hp[best];
+    var top=+svg.getAttribute('data-top')||18, bot=+svg.getAttribute('data-bot')||184, name=svg.getAttribute('data-name')||'';
+    var g=svg.querySelector('.hovg'); if(!g)return; g.innerHTML='';
+    g.appendChild(svgEl('line',{'class':'hovln',x1:p.x,y1:top,x2:p.x,y2:bot}));
+    if(p.py!=null)g.appendChild(svgEl('circle',{'class':'hovdt pp',cx:p.x,cy:p.py,r:3}));
+    g.appendChild(svgEl('circle',{'class':'hovdt',cx:p.x,cy:p.y,r:3.6}));
+    var sx=rect.left+p.x/780*rect.width, sy=rect.top+p.y/(+svg.getAttribute('viewBox').split(' ')[3])*rect.height;
+    var t=getTip();
+    t.innerHTML='<span class="vv">'+esc(p.vt)+'</span>'+(name?' <span class="dd">'+esc(name)+'</span>':'')+
+      '<br><span class="dd">'+esc(p.l)+'</span>'+(p.pt!=null?'<br><span class="pp">prior: '+esc(p.pt)+'</span>':'');
+    var lx=Math.max(64,Math.min(window.innerWidth-64,sx));
+    t.style.left=lx+'px'; t.style.top=Math.max(38,sy)+'px'; t.classList.add('on');
+  },true);
+  document.addEventListener('mouseout',function(e){
+    var to=e.relatedTarget; if(to&&to.closest&&to.closest('svg.cv'))return;
+    if(e.target&&e.target.closest&&e.target.closest('svg.cv'))hide(e.target.closest('svg.cv'));
+  },true);
+  window.addEventListener('scroll',function(){hide();},true);
+})();
 
 /* ---------- HubSpot range maths ----------
    HubSpot history is a series of daily POINT-IN-TIME snapshots, not a transaction

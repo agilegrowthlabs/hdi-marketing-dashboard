@@ -49,6 +49,15 @@ Last substantive update: 2026-08-24 — Verona 1:1 dashboard changes (below).
   reintroduce "compounding".
 - **Bar labels no longer clip:** `.row` label column widened and `.row .lb` wraps
   (`white-space:normal; overflow-wrap:anywhere`) so long metro names / titles show in full.
+- **Every `trend()` chart is hover-interactive** (Henry Aug 26): each SVG carries a
+  `data-hp` (URI-encoded JSON of every point: x, y, label, formatted value `vt`, and prior
+  value `pt`/`py` when the chart has a prior overlay) plus `data-top`/`data-bot`. ONE shared,
+  delegated document-level `mousemove` handler (guarded by `window.__cvhov`) snaps to the
+  nearest point, draws a `.hovln` guide + `.hovdt` dot(s) into the chart's `<g class="hovg">`,
+  and positions the floating `.cvtip`. It relies on `viewBox="0 0 780 210"` +
+  `preserveAspectRatio="none"` (linear X map). DO NOT REMOVE the `data-hp`/`data-top`/
+  `data-bot` attributes, the `<g class="hovg"></g>` node, or the hover IIFE. Any new chart that
+  goes through `trend()` gets this for free — keep new charts on `trend()`.
 - STILL PENDING (needs data from Verona): 2-year GA backfill; LinkedIn historical follower +
   post-level spreadsheets. And organic search-terms drill-down needs Google Search Console.
 
