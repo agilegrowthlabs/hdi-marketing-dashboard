@@ -43,6 +43,12 @@ Last substantive update: 2026-08-24 — Verona 1:1 dashboard changes (below).
   rate" — a 0% on 3 visitors is noise, not a result); the low list is "Lowest-**traffic** posts"
   ranked by sessions with a small-sample caveat; `shortTitle()` truncates titles at a word
   boundary (no mid-word cut).
+- **Headlines are data-honest** (Henry Aug 24): the Insights headline is graded by month-over-month
+  (climbing ≥25% / up ≥8% / holding steady / down ≤-8% / "Website performance ·" when no prior) — it
+  never asserts "compounding". LinkedIn headline is "The LinkedIn audience keeps growing." Don't
+  reintroduce "compounding".
+- **Bar labels no longer clip:** `.row` label column widened and `.row .lb` wraps
+  (`white-space:normal; overflow-wrap:anywhere`) so long metro names / titles show in full.
 - STILL PENDING (needs data from Verona): 2-year GA backfill; LinkedIn historical follower +
   post-level spreadsheets. And organic search-terms drill-down needs Google Search Console.
 
