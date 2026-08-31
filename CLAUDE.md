@@ -58,8 +58,25 @@ Last substantive update: 2026-08-24 — Verona 1:1 dashboard changes (below).
   `preserveAspectRatio="none"` (linear X map). DO NOT REMOVE the `data-hp`/`data-top`/
   `data-bot` attributes, the `<g class="hovg"></g>` node, or the hover IIFE. Any new chart that
   goes through `trend()` gets this for free — keep new charts on `trend()`.
-- STILL PENDING (needs data from Verona): 2-year GA backfill; LinkedIn historical follower +
-  post-level spreadsheets. And organic search-terms drill-down needs Google Search Console.
+- **Freshness badges show an ABSOLUTE timestamp** (Henry Aug 31): the new `stamp(iso)` helper
+  renders the pull/build time in the viewer's local time (e.g. "Aug 30, 10:00 AM"). `srcTag()`'s
+  live badge is `label+" · updated "+stamp(src.pulled_at)` and the header build pill is
+  `"Built "+stamp(S.built_at)` — NOT the old relative `ago()` "6h ago", which read like a fixed
+  label. The `live` tag CLASS (green dot) is kept; only the text changed. Keep `stamp()` and the
+  absolute wording.
+- **GA4 is the single traffic-over-time source** (Henry Aug 31): the Insights day-by-day Clarity
+  "Traffic over time · Clarity" Date/Human/Bot/Total TABLE was removed — it duplicated the GA4
+  "Traffic trend" chart and read as a second, conflicting traffic source. Clarity's role is now
+  only the bot-detection summary on the WEBSITE tab ("Human vs bot traffic · Clarity"). Do not
+  re-add a daily Clarity traffic table to Insights. The "How to read GA4 vs Clarity" explainer
+  stays as framing.
+- STILL PENDING: **GA history only reaches back to the pipeline start (~May 15)** — extending it
+  needs the DATA ENGINE to backfill GA's Data API (off-limits repo, not this one) OR a GA export
+  loaded into a separate store index.html merges; there is NO GA4 data source wired into the
+  dashboard session. **Organic search terms (B6)** needs Google Search Console — no GSC/GA
+  connector is connected; requires a verified GSC property + a connector the owner authorizes,
+  then a place in the feed for it. LinkedIn historical follower + post-level spreadsheets still
+  pending from Verona.
 
 ## STATUS — READ THIS FIRST
 - Live at https://hdi-marketing-dashboard.netlify.app and the code on `main` matches it

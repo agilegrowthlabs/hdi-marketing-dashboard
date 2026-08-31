@@ -291,6 +291,11 @@ function money(v){if(v==null)return "—";if(Math.abs(v)>=1e6)return "$"+(v/1e6)
 function num(v){return (v==null)?"—":Math.round(v).toLocaleString("en-US");}
 function ago(iso){if(!iso)return "never";var m=Math.round((Date.now()-new Date(iso).getTime())/60000);
   if(m<60)return m+"m ago";var h=Math.round(m/60);if(h<48)return h+"h ago";return Math.round(h/24)+"d ago";}
+/* Absolute refresh stamp in the VIEWER'S local time — an actual date/time so the badge is
+   unmistakably real and moves with every pull (never a fixed "5 hours ago" look). */
+function stamp(iso){if(!iso)return "unknown";var d=new Date(iso);if(isNaN(d.getTime()))return "unknown";
+  try{return d.toLocaleString(undefined,{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"});}
+  catch(_){return d.toISOString().slice(0,16).replace("T"," ")+" UTC";}}
 function tag(k,t){return '<span class="tag '+k+'">'+esc(t)+'</span>';}
 function kpi(k,v,d,n,o){o=o||{};
   return '<div class="kpi'+(o.hi?" hi":"")+(o.sample?" sample":"")+'"><span class="k">'+esc(k)+'</span>'+
@@ -317,7 +322,7 @@ function mode(src){
 function srcTag(src,label){
   if(PV)return tag("samp","Sample · preview");
   var m=mode(src);
-  if(m==="live")return tag("live",label+" live · "+ago(src.pulled_at));
+  if(m==="live")return tag("live",label+" · updated "+stamp(src.pulled_at));
   if(m==="stub")return tag("stub",label+" · stub mode");
   return tag("none",label+" · no data");
 }
@@ -1221,7 +1226,7 @@ function shell(){
   var stub=Object.keys(m).filter(function(k){return m[k]==="stub";});
   var none=Object.keys(m).filter(function(k){return m[k]!=="live"&&m[k]!=="stub";});
   $("built").className="pill "+(S.built_at?"ok":"off");
-  $("builtTxt").textContent="Built "+ago(S.built_at);
+  $("builtTxt").textContent="Built "+stamp(S.built_at);
   $("feed").className="pill "+(live.length===4?"ok":live.length?"part":"off");
   $("feedTxt").textContent=live.length+"/4 live"+(stub.length?" · "+stub.length+" stub":"")+(none.length?" · "+none.length+" empty":"");
 
@@ -1419,19 +1424,10 @@ function insights(){
     'Use <b>GA4 for how much traffic</b>, and <b>Clarity for how visitors behave and how many are bots</b> (Website tab).</p>'+
     '</div></div>';
 
-  /* ---------- DETAIL: Clarity human-vs-bot trend (our stored history) ---------- */
-  var clr=(RAW.clarity&&Array.isArray(RAW.clarity.rows))?RAW.clarity.rows.filter(function(r){return r.data&&r.data.mode==="live"&&r.data.metrics&&r.data.metrics.traffic&&r.data.metrics.traffic.totalBotSessionCount!=null;}):[];
-  var byd={};
-  clr.forEach(function(r){var d=r.date||(r.pulled_at||"").slice(0,10);var tr=r.data.metrics.traffic;var cur=byd[d];if(!cur||newer(r.pulled_at,cur.pulled_at))byd[d]={date:d,pulled_at:r.pulled_at,human:Number(tr.totalSessionCount)||0,bot:Number(tr.totalBotSessionCount)||0};});
-  var cdays=Object.keys(byd).filter(function(d){return d>=WIN.start&&d<=WIN.end;}).sort().map(function(k){return byd[k];});
-  if(cdays.length){
-    var rowsH=cdays.map(function(x){var tot=x.human+x.bot;return '<tr><td>'+esc(x.date)+'</td><td class="n">'+x.human+'</td><td class="z">'+x.bot+'</td><td class="n">'+tot+'</td></tr>';}).join("");
-    h+='<div class="card" style="margin-bottom:12px"><div class="ch"><h3>Traffic over time · Clarity</h3>'+
-      '<span class="note">'+esc(winDesc())+' · '+cdays.length+' day'+(cdays.length===1?"":"s")+' with data</span>'+srcTag(S.sources.clarity,"Clarity")+'</div><div class="cb">'+
-      '<table><thead><tr><th>Date</th><th>Human</th><th>Bot</th><th>Total</th></tr></thead><tbody>'+rowsH+'</tbody></table>'+
-      '<div class="foot ok">These are Clarity\'s behaviour-sample counts (dozens), not total site traffic — see "How to read GA4 vs Clarity" above. Clarity only serves the last 72 hours, so this history exists only because the pipeline stores each day into our own database. It cannot be backfilled before the first stored day — it grows forward one point per day.</div>'+
-      '</div></div>';
-  }
+  /* Clarity's day-by-day human/bot table was removed (Henry Aug 31): it duplicated the traffic
+     story already carried by the GA4 "Traffic trend" chart above and read as a second, conflicting
+     traffic source. GA4 is now the single traffic-over-time source; Clarity's bot-detection summary
+     lives on the Website tab, where it belongs. */
 
   /* ---------- WHAT LEADERSHIP SHOULD TAKE AWAY ---------- */
   h+='<div class="card" style="margin-bottom:12px;border-color:#BFDBD6;background:var(--tealb)"><div class="ch" style="border-color:#CFE3DF"><h3 style="color:var(--teal)">What leadership should take away</h3></div><div class="cb"><ul style="margin:0;padding-left:18px;color:var(--teal)">'+
