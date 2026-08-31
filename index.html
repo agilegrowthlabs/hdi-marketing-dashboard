@@ -624,14 +624,14 @@ function board(){
     (bmSrc?'The standard is <b>'+bmSrc.industry_low+'–'+bmSrc.industry_high+'%</b> of pipeline sourced by marketing; below 30% is treated as structural rather than an execution problem. HDI cannot compute it at all, which is more basic still.':'')+
     '</p></div>';
 
-  h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Feed status</h3><span class="note">built '+ago(S.built_at)+'</span></div><div class="cb"><table><tbody>'+
+  h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Feed status</h3><span class="note">built '+stamp(S.built_at)+'</span></div><div class="cb"><table><tbody>'+
     [["HubSpot",S.sources.hubspot],["GA4",S.sources.ga4],["Clarity",S.sources.clarity],["LinkedIn",S.sources.linkedin]]
     .map(function(x){
       var m=mode(x[1]);
       var lbl=m==="live"?'<span class="n" style="color:var(--teal)">live</span>':
               m==="stub"?'<span class="z" style="color:var(--amb)">stub</span>':'<span class="z">no data</span>';
       return '<tr><td>'+x[0]+'</td><td>'+lbl+'</td><td class="'+(x[1]&&x[1].pulled_at?"n":"z")+'">'+
-        (x[1]&&x[1].pulled_at?ago(x[1].pulled_at):"never")+'</td></tr>';
+        (x[1]&&x[1].pulled_at?stamp(x[1].pulled_at):"never")+'</td></tr>';
     }).join("")+'</tbody></table>'+
     '<div class="foot">Stub means the collector ran fine but returned an empty payload — not an error, and not live either.</div>'+
     '</div></div></div></div>';
@@ -886,6 +886,13 @@ function website(){
   var ct=(!PV)?clarityTraffic(c):null;
   var cw=(!PV)?clarityWindow():null;
   if(ct||cw){
+    /* CONTEXT (moved here from Insights Aug 31): why GA4 and Clarity counts differ so much —
+       sits right above the Clarity numbers so no one reads them as conflicting with GA4. */
+    h+='<div class="card" style="margin-top:12px;border-color:#BFDBD6;background:var(--tealb)"><div class="ch" style="border-color:#CFE3DF"><h3 style="color:var(--teal)">How to read GA4 vs Clarity</h3><span class="note">different tools, not conflicting numbers</span></div><div class="cb">'+
+      '<p style="margin:0;color:var(--teal)"><b>GA4</b> (the traffic chart at the top of this tab) measures <b>all website traffic</b> — every session and visitor, with Google\'s own bot filtering — so its counts run in the thousands. '+
+      '<b>Clarity</b> (the panel just below) records a <b>behaviour sample</b> on a fraction of visits and separately flags bots, so its counts run in the dozens. '+
+      'Use <b>GA4 for how much traffic</b>, and <b>Clarity for how visitors behave and how many are bots</b>. The two are not meant to match.</p>'+
+      '</div></div>';
     var qReal=cw?cw.real:(ct?ct.real:0), qBot=cw?cw.bot:(ct?ct.bot:0), qTot=qReal+qBot;
     var topB=(ct&&ct.buckets[0])||null;
     var win=cw?winDesc():(ct&&ct.window_days?("last "+ct.window_days+(ct.window_days===1?" day":" days")):"latest window");
@@ -1417,12 +1424,8 @@ function insights(){
       '</div></div>';
   }
 
-  /* ---------- CONTEXT: how GA4 and Clarity relate ---------- */
-  h+='<div class="card" style="margin-bottom:12px"><div class="ch"><h3>How to read GA4 vs Clarity</h3><span class="note">different tools, not conflicting numbers</span></div><div class="cb">'+
-    '<p style="margin:0"><b>GA4</b> measures <b>all website traffic</b> — every session and visitor, with Google\'s own bot filtering — so its counts run in the thousands. '+
-    '<b>Clarity</b> records a <b>behaviour sample</b> (session replays and heatmaps) on a fraction of visits, and separately flags bots, so its counts run in the dozens. '+
-    'Use <b>GA4 for how much traffic</b>, and <b>Clarity for how visitors behave and how many are bots</b> (Website tab).</p>'+
-    '</div></div>';
+  /* The "How to read GA4 vs Clarity" explainer moved to the Website tab (Henry Aug 31), next to
+     the Clarity human-vs-bot panel it describes — Insights is now GA4-only, so it belonged there. */
 
   /* Clarity's day-by-day human/bot table was removed (Henry Aug 31): it duplicated the traffic
      story already carried by the GA4 "Traffic trend" chart above and read as a second, conflicting

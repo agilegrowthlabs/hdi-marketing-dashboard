@@ -63,13 +63,15 @@ Last substantive update: 2026-08-24 — Verona 1:1 dashboard changes (below).
   live badge is `label+" · updated "+stamp(src.pulled_at)` and the header build pill is
   `"Built "+stamp(S.built_at)` — NOT the old relative `ago()` "6h ago", which read like a fixed
   label. The `live` tag CLASS (green dot) is kept; only the text changed. Keep `stamp()` and the
-  absolute wording.
+  absolute wording. The Board "Feed status" card also uses `stamp()` for both the built time and
+  each source's pulled_at, so freshness is absolute everywhere (no relative `ago()` on any badge).
 - **GA4 is the single traffic-over-time source** (Henry Aug 31): the Insights day-by-day Clarity
   "Traffic over time · Clarity" Date/Human/Bot/Total TABLE was removed — it duplicated the GA4
   "Traffic trend" chart and read as a second, conflicting traffic source. Clarity's role is now
   only the bot-detection summary on the WEBSITE tab ("Human vs bot traffic · Clarity"). Do not
-  re-add a daily Clarity traffic table to Insights. The "How to read GA4 vs Clarity" explainer
-  stays as framing.
+  re-add a daily Clarity traffic table to Insights. The **"How to read GA4 vs Clarity" explainer
+  now lives on the WEBSITE tab**, immediately above the Clarity human-vs-bot panel it describes
+  (moved off Insights, which is GA4-only now) — keep it adjacent to the Clarity numbers.
 - STILL PENDING: **GA history only reaches back to the pipeline start (~May 15)** — extending it
   needs the DATA ENGINE to backfill GA's Data API (off-limits repo, not this one) OR a GA export
   loaded into a separate store index.html merges; there is NO GA4 data source wired into the
