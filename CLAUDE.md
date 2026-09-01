@@ -19,11 +19,12 @@ Last substantive update: 2026-08-24 — Verona 1:1 dashboard changes (below).
 
 ## AUG 24 (Verona 1:1) — load-bearing changes, do not regress
 - **`trend()` now draws Y-AXIS NUMBERS** on every chart (`.axy` labels at each gridline via
-  `axfmt`). Critical per Verona ("could be 10 or 1,000"). Also supports **`opts.prior`** — a
-  taupe dashed prior-period overlay line — and **clamps the axis floor at 0** for non-negative
-  data (no "-6 sessions"). Keep all three.
-- **Prior-period overlay** is wired on the Insights traffic-trend and Website "Sessions over
-  time" charts via `opts.prior = W.pri.map(d=>d.sessions)`.
+  `axfmt`). Critical per Verona ("could be 10 or 1,000"). Also **clamps the axis floor at 0** for
+  non-negative data (no "-6 sessions"). Keep both. (`opts.prior` still exists in `trend()` but is
+  no longer used — see Sep 1: Verona moved the period comparison to the cards.)
+- **Prior-period overlay LINES were REMOVED from the charts** (Verona Sep 1) — she wants the
+  period-over-period comparison on the summary CARDS, not as lines on the traffic charts. Do not
+  re-add `prior:` to the Website "Sessions over time" or Insights "Traffic trend" trend() calls.
 - **Header title is just "Marketing performance"** (the "one source of truth" subtitle was
   removed — the integrity note still lives in the page footer).
 - **`benchLegend()`** (lime = clears benchmark / sage = under benchmark colour dots) sits under
@@ -72,6 +73,40 @@ Last substantive update: 2026-08-24 — Verona 1:1 dashboard changes (below).
   re-add a daily Clarity traffic table to Insights. The **"How to read GA4 vs Clarity" explainer
   now lives on the WEBSITE tab**, immediately above the Clarity human-vs-bot panel it describes
   (moved off Insights, which is GA4-only now) — keep it adjacent to the Clarity numbers.
+
+## SEP 1 (from Verona 1:1 Aug 31) — load-bearing, do not regress
+- **Website top cards are Clarity-led** (Verona Aug 31): the headline card is **HUMAN SESSIONS**
+  (bot-filtered Clarity, via `clarityRange(WIN.start,WIN.end)`), then UNIQUE USERS (GA4), SESSIONS·ALL
+  (GA4, "for deeper reporting"), ENGAGEMENT RATE — each with period-over-period. Clarity human is the
+  honest "real visitors" number; GA4's raw sessions are demoted. The GA4-vs-Clarity explainer + the
+  human-vs-bot panel foot were reworded to match ("GA4 counts every session incl. bots; Clarity
+  separates humans from bots") — the old "dozens vs thousands" framing is GONE, don't bring it back.
+  `clarityRange(s,e)` is the helper; keep it.
+- **Engagement-rate dot is BENCHMARK-based, not growth-based** (Verona Aug 31): the eng-rate card
+  dot uses `benchPos(engRate,lo,hi).warn` (green only if it clears the 52–56% benchmark) on both
+  Website and Insights, and the card spells out "benchmark 52–56%". Volume cards (sessions/users)
+  keep the growth-based dot. Don't revert the eng-rate dot to growth-based — that was the "green dot
+  that doesn't meet the benchmark" confusion.
+- **`isDevPath(p)`** strips Meg's developer traffic (`.php`, `/wp-`, `/cms/`, `member_id`) from the
+  Website landing-pages + top-pages and the Blog. Keep it applied.
+- **Blog tab shows its REAL per-post coverage** (Verona Aug 31): `aggGA4` returns `lp_start/lp_end/
+  lp_ndays`; blog's span is the actual landing-page date range (not `winDesc()`), with a note that
+  per-post tracking began `blogStart`. Per-post (landing_page) data only accrues from ~Aug 8, so wide
+  ranges legitimately can't reach further back — this is data, not a bug. Blog engagement rate is the
+  live windowed figure (never a stored snapshot).
+- **LinkedIn responds to the date range** (Verona Aug 31): `winMonths()` + `labelDate()` parse the
+  monthly labels to dates and filter to WIN; when <2 months fall in the window it falls back to all
+  months with a "range too short for monthly data" note (LinkedIn is monthly — can't subdivide a
+  30-day window). Applied to followers/visitors/engagement/impressions series. Don't hardcode
+  "Aug 2024 → today" again.
+- **LinkedIn industry panel is wired** (`demographics_industry` in the upload) but shows an honest
+  "awaiting the industry cut" state until that data is loaded — the current export only captured
+  `demographics_location`. Verona wants industry (hospitals/health systems/education) > location.
+- **Color legends on every colored-bar panel** (Verona Aug 31): `benchLegend()` on Website landing
+  pages; `benchDot()` color keys on Website top-pages, Blog top posts, LinkedIn location/industry/
+  content-type/benchmark. Keep a key wherever bars are colored.
+- STILL OPEN from Aug 31: upload the LinkedIn + GA backlog data Verona sent (needs the files);
+  the industry cut for the LinkedIn panel rides along with that upload.
 - STILL PENDING: **GA history only reaches back to the pipeline start (~May 15)** — extending it
   needs the DATA ENGINE to backfill GA's Data API (off-limits repo, not this one) OR a GA export
   loaded into a separate store index.html merges; there is NO GA4 data source wired into the
