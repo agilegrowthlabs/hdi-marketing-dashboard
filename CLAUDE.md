@@ -105,8 +105,16 @@ Last substantive update: 2026-08-24 — Verona 1:1 dashboard changes (below).
 - **Color legends on every colored-bar panel** (Verona Aug 31): `benchLegend()` on Website landing
   pages; `benchDot()` color keys on Website top-pages, Blog top posts, LinkedIn location/industry/
   content-type/benchmark. Keep a key wherever bars are colored.
-- STILL OPEN from Aug 31: upload the LinkedIn + GA backlog data Verona sent (needs the files);
-  the industry cut for the LinkedIn panel rides along with that upload.
+- **LinkedIn BACKLOG LOADED** (Sep 1, from Verona's 10 Drive exports): `data/linkedin.json` now
+  carries real history — `seed_trends.followers_monthly` (22 pts, Aug'24 181 → Aug'26 732),
+  `visitors_monthly`, `engagement_monthly`, and a NEW `seed_trends.impressions_monthly` (the
+  Impressions chart reads it now); `demographics_industry` + `demographics_seniority` /
+  `_jobfunction` / `_companysize` on the current upload (four follower-demographic panels render);
+  `post_types` recomputed from real data (Carousel 16.9% tops, Image lowest); and a top-level
+  **`post_archive`** (62 real posts w/ impressions/clicks/ctr/reactions/reposts/er) that the Post
+  archive merges with the current upload's posts (deduped by title+date). Don't overwrite these
+  with the old deck-reconstructed seed. STILL open: GA 2-year backfill (B7) — those files were
+  NOT in this set (all 10 were LinkedIn); still needs a GA export or a Search Console hookup.
 - STILL PENDING: **GA history only reaches back to the pipeline start (~May 15)** — extending it
   needs the DATA ENGINE to backfill GA's Data API (off-limits repo, not this one) OR a GA export
   loaded into a separate store index.html merges; there is NO GA4 data source wired into the

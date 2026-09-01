@@ -1200,6 +1200,18 @@ function linkedin(){
   } else if(!PV) {
     h+='<div class="card" style="margin-top:12px;border-color:#E4D9C4;background:var(--amber-b,#F7EEDD)"><div class="ch"><h3>Follower demographics · industry</h3><span class="note">ready — awaiting the industry cut</span>'+upTag+'</div><div class="cb"><div class="foot" style="margin:0;color:var(--taupe)">LinkedIn\'s follower export includes an <b>industry</b> breakdown (hospitals, health systems, education, etc.) alongside location. This panel is built and will render it automatically once that industry cut is added to the LinkedIn upload — it\'s in the export Verona sent; it just needs loading into <code>demographics_industry</code>.</div></div></div>';
   }
+  /* Extra follower demographic cuts (Verona Aug 31 backlog): seniority, job function, company size. */
+  function demoPanel(arr,title,note){
+    if(!arr||!arr.length)return "";
+    var mx=arr.reduce(function(a,x){return Math.max(a,x.value||0);},0)||1;
+    return '<div class="card" style="margin-top:12px"><div class="ch"><h3>Follower demographics · '+esc(title)+'</h3><span class="note">'+esc(note)+'</span>'+upTag+'</div><div class="cb">'+
+      bars(arr.map(function(x,i){return [x.label,x.value,i===0?"var(--lime)":"var(--sage)",x.value+" · "+x.pct+"%"];}),mx)+
+      '<div class="foot" style="display:flex;gap:20px;flex-wrap:wrap;align-items:center">'+benchDot("var(--lime)")+'top&nbsp;&nbsp;'+benchDot("var(--sage)")+'others</div>'+
+      '</div></div>';
+  }
+  h+=demoPanel(cur.demographics_seniority,"seniority","who the audience is — decision-maker mix");
+  h+=demoPanel(cur.demographics_jobfunction,"job function","the roles that follow HDI");
+  h+=demoPanel(cur.demographics_companysize,"company size","how large their organizations are");
 
   /* ============ ENGAGEMENT GROUP (engagement metrics together) ============ */
   var engW=winMonths((seed.engagement_monthly||[]).concat(ups.filter(function(u){return u.engagement_rate!=null;}).map(function(u){return [u.month||u.period,u.engagement_rate];})));
@@ -1210,10 +1222,10 @@ function linkedin(){
       '<div class="foot">HDI averages well above the '+(B.company_low||1)+'–'+(B.company_high||3)+'% industry range — roughly <b>4×</b> a typical B2B company page. Follows the date range at the top.</div>'+
       '</div></div>';
   }
-  var impW=winMonths(ups.map(function(u){return [u.month||u.period,o(o(u.profile).impressions).value];}));
+  var impW=winMonths((seed.impressions_monthly||[]).concat(ups.map(function(u){return [u.month||u.period,o(o(u.profile).impressions).value];})));
   if(impW.series.length>1){
     var ti=trend(impW.series,{trendline:true});
-    h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Impressions per month</h3><span class="note">one point per upload · dashed = trend'+winNote(impW)+'</span>'+upTag+'</div><div class="cb">'+(ti?ti.svg:"")+
+    h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Impressions per month</h3><span class="note">monthly · dashed = trend'+winNote(impW)+'</span>'+upTag+'</div><div class="cb">'+(ti?ti.svg:"")+
       '<div class="foot">Total reach each reporting period. This line builds one point per monthly upload.</div></div></div>';
   }
   var pt=(L.post_types||[]).slice().sort(function(a,b){return b.er-a.er;});
@@ -1248,10 +1260,12 @@ function linkedin(){
       '</div></div>';
   }
 
-  /* ---- Post archive — sortable + expandable (Verona Aug 24 C3) ---- */
+  /* ---- Post archive — sortable + expandable (Verona Aug 24 C3; Aug 31 backlog: L.post_archive) ---- */
   var archive=[];
-  ups.forEach(function(u){(u.posts||[]).forEach(function(p){var c=Object.assign({},p);c._month=u.month||u.period;archive.push(c);});});
-  var storedPeriods=ups.length;
+  var seenP={};
+  (L.post_archive||[]).forEach(function(p){var c=Object.assign({},p);c._month=p.date||"";var k=(p.title||"").slice(0,40).toLowerCase()+"|"+(p.date||"");if(seenP[k])return;seenP[k]=1;archive.push(c);});
+  ups.forEach(function(u){(u.posts||[]).forEach(function(p){var k=(p.title||"").slice(0,40).toLowerCase()+"|"+(p.date||"");if(seenP[k])return;seenP[k]=1;var c=Object.assign({},p);c._month=u.month||u.period;archive.push(c);});});
+  var storedPeriods=(L.post_archive&&L.post_archive.length)?"the full LinkedIn history":(ups.length+" uploaded period"+(ups.length===1?"":"s"));
   if(archive.length){
     var COLS=[{k:"type",l:"Type",t:false},{k:"impressions",l:"Impr."},{k:"clicks",l:"Clicks"},{k:"ctr",l:"CTR"},{k:"reactions",l:"Reactions"},{k:"reposts",l:"Reposts"},{k:"er",l:"Eng. rate"}];
     var sorted=archive.slice().sort(function(a,b){
@@ -1262,7 +1276,7 @@ function linkedin(){
     var shown=LI_MORE?sorted:sorted.slice(0,10);
     var arrow=function(k){return LI_SORT===k?(LI_DIR==="asc"?" ▲":" ▼"):"";};
     var ths='<th>Post</th>'+COLS.map(function(c){return '<th style="cursor:pointer;user-select:none" onclick="LIsort(\''+c.k+'\')">'+c.l+esc(arrow(c.k))+'</th>';}).join("");
-    h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Post archive — every post, sortable</h3><span class="note">'+archive.length+' post'+(archive.length===1?"":"s")+' across '+storedPeriods+' period'+(storedPeriods===1?"":"s")+' · click a column to sort</span>'+upTag+'</div><div class="cb" style="overflow-x:auto">'+
+    h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Post archive — every post, sortable</h3><span class="note">'+archive.length+' post'+(archive.length===1?"":"s")+' across '+storedPeriods+' · click a column to sort</span>'+upTag+'</div><div class="cb" style="overflow-x:auto">'+
       '<table><thead><tr>'+ths+'</tr></thead><tbody>'+shown.map(function(p){return postRow(p,true);}).join("")+'</tbody></table>'+
       (archive.length>10?'<div style="text-align:center;margin-top:10px"><button onclick="LImore()" style="font-family:var(--m);font-size:11px;letter-spacing:.05em;padding:7px 16px;border:1px solid var(--line);border-radius:20px;background:#fff;color:var(--teal);cursor:pointer">'+(LI_MORE?"Show top 10":"See all "+archive.length+" posts")+'</button></div>':"")+
       '<div class="foot">Sort by engagement rate, impressions, clicks, CTR, reactions or reposts. <b>Every post from every upload is kept here</b> — as more months load, this is the running record of what wins over time.</div>'+
@@ -1271,7 +1285,7 @@ function linkedin(){
 
   /* ---- Storage / history note ---- */
   h+='<div class="card" style="margin-top:12px;border-color:#BFDBD6;background:var(--tealb)"><div class="cb" style="color:var(--teal)">'+
-    '<b>History is stored, not overwritten.</b> This tab currently holds <b>'+storedPeriods+' uploaded period'+(storedPeriods===1?"":"s")+'</b> ('+archive.length+' posts archived). Each new monthly export is <i>added</i> to the record — so the follower, engagement and impression trends keep extending, and every individual post stays in the archive for over-time comparison. Nothing is replaced or lost.'+
+    '<b>History is stored, not overwritten.</b> This tab now holds <b>'+archive.length+' posts</b> spanning '+storedPeriods+'. Each new monthly export is <i>added</i> to the record — so the follower, engagement and impression trends keep extending, and every individual post stays in the archive for over-time comparison. Nothing is replaced or lost.'+
     '</div></div>';
 
   $("p-li").innerHTML=h;
