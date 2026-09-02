@@ -138,6 +138,16 @@ no JS error messages, stack traces, `netlify.toml`/proxy hints, `mode:"stub"`, A
 - Footer + source badges are plain-language ("no data yet", "Data last built …"), no API paths.
 Any new user-facing string must read for a non-technical exec. Log the technical detail to console.
 
+## CHART KEY + TERSE COPY (Henry Sep 2) — do not regress
+- **`chartKey(opts)`** renders a plain line key and `trend()` appends it to EVERY chart's svg, so
+  every line chart on the dashboard shows the same key automatically: green swatch **This period**,
+  grey swatch **Usual range**, dashed **Trend** (when `opts.trendline`), dashed **Benchmark** (when
+  `opts.benchmark`). Never leave a chart's colours unlabelled; new charts on `trend()` get it free.
+  Because the key is universal, chart header `.note`s must NOT repeat "grey band =/lime =/dashed =".
+- **Copy is terse.** Context blurbs are short and scannable, not paragraphs. `CHANNEL_DEF` is
+  keyword-length ("Direct = typed or bookmarked"), `channelLegend()` is one ` · `-joined line, and
+  chart notes carry only what the key doesn't. Keep new explanatory copy short and direct.
+
 ## STATUS — READ THIS FIRST
 - Live at https://hdi-marketing-dashboard.netlify.app and the code on `main` matches it
   exactly. Always `git pull` and build on the CURRENT `main`. Do NOT resurrect an older

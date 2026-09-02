@@ -257,24 +257,24 @@ function pageLink(p,label){var pth=(p||"").replace(/[?#].*$/,"");var txt=label||
 /* Plain-language definitions for GA4's default channel groups — most people don't know what
    "Unassigned" or "AI Assistant" mean. Rendered under the channel charts for the channels present. */
 var CHANNEL_DEF={
-  "Direct":"typed your address or used a bookmark — no referrer recorded",
-  "Organic Search":"found you through an unpaid Google/Bing search",
-  "Organic Social":"clicked through from an unpaid social post (LinkedIn, etc.)",
-  "Organic Video":"came from a video platform (YouTube, etc.)",
-  "Referral":"followed a link from another website",
-  "Email":"clicked a link in an email",
-  "Paid Search":"clicked a paid search ad",
-  "Paid Social":"clicked a paid social ad",
-  "Display":"clicked a display/banner ad",
-  "Affiliates":"came through an affiliate link",
-  "Unassigned":"GA4 couldn't identify the source — usually a tracking gap or a declined cookie consent",
-  "AI Assistant":"arrived from an AI tool (ChatGPT, Perplexity, Gemini, etc.)"
+  "Direct":"typed or bookmarked",
+  "Organic Search":"unpaid Google/Bing",
+  "Organic Social":"unpaid social (LinkedIn)",
+  "Organic Video":"video (YouTube)",
+  "Referral":"link from another site",
+  "Email":"email link",
+  "Paid Search":"paid search ad",
+  "Paid Social":"paid social ad",
+  "Display":"banner ad",
+  "Affiliates":"affiliate link",
+  "Unassigned":"source unknown (tracking gap)",
+  "AI Assistant":"AI tool (ChatGPT, etc.)"
 };
 function channelLegend(names){
   var seen={},out=[];
-  (names||[]).forEach(function(n){if(n&&!seen[n]&&CHANNEL_DEF[n]){seen[n]=1;out.push("<b>"+esc(n)+"</b> — "+esc(CHANNEL_DEF[n]));}});
+  (names||[]).forEach(function(n){if(n&&!seen[n]&&CHANNEL_DEF[n]){seen[n]=1;out.push("<b>"+esc(n)+"</b> "+esc(CHANNEL_DEF[n]));}});
   if(!out.length)return "";
-  return '<div class="foot">What these channels mean: '+out.join("; ")+'. <b>n</b> = number of sessions; the <b>%</b> on the right is that channel’s engagement rate (share of its sessions that were actively engaged).</div>';
+  return '<div class="foot">'+out.join(" · ")+' &nbsp;·&nbsp; n = sessions · % = engagement rate</div>';
 }
 /* A2 (Verona Aug 24): a plain colour-dot key for the engagement bars. */
 function benchDot(color){return '<span style="display:inline-block;width:11px;height:11px;border-radius:3px;background:'+color+';vertical-align:middle;margin-right:6px"></span>';}
@@ -359,6 +359,18 @@ function PREVIEW(){
 }
 
 /* ---------- chart with band + benchmark ---------- */
+/* Plain, consistent line key on EVERY chart (Henry Sep 2) — green line, grey band, dashed
+   trend/benchmark — so no one guesses what a colour means. Terse by design. */
+function chartKey(opts){
+  opts=opts||{};
+  function sw(css){return '<span style="display:inline-block;width:16px;'+css+';vertical-align:middle;margin-right:5px"></span>';}
+  var it=[sw('height:3px;background:var(--lime);border-radius:2px')+'This period',
+          sw('height:10px;background:var(--track);border-radius:2px')+'Usual range'];
+  if(opts.trendline)it.push(sw('height:0;border-top:2px dashed var(--teal)')+'Trend');
+  if(opts.benchmark!=null)it.push(sw('height:0;border-top:2px dashed var(--teal)')+'Benchmark');
+  return '<div class="foot" style="display:flex;gap:6px 16px;flex-wrap:wrap;margin-top:8px;align-items:center">'+
+    it.map(function(x){return '<span style="display:inline-flex;align-items:center;white-space:nowrap">'+x+'</span>';}).join('')+'</div>';
+}
 function trend(series,opts){
   opts=opts||{};
   var pts=series.filter(function(s){return s.v!=null;});
@@ -426,7 +438,7 @@ function trend(series,opts){
   });
   var meta=' data-hp="'+encodeURIComponent(JSON.stringify(HP))+'" data-top="'+pt+'" data-bot="'+(pt+ih)+'"'+
     (opts.hoverName?' data-name="'+esc(opts.hoverName)+'"':'');
-  return {svg:'<svg class="cv" viewBox="0 0 '+w+' '+h+'" preserveAspectRatio="none"'+meta+'>'+s+'<g class="hovg"></g></svg>',lo:lo,hi:hi,last:pts[pts.length-1]};
+  return {svg:'<svg class="cv" viewBox="0 0 '+w+' '+h+'" preserveAspectRatio="none"'+meta+'>'+s+'<g class="hovg"></g></svg>'+chartKey(opts),lo:lo,hi:hi,last:pts[pts.length-1]};
 }
 /* ---------- shared chart hover: true number on any trend() chart ---------- */
 (function(){
@@ -854,7 +866,7 @@ function website(){
     var t=trend(gd.map(function(x){return {label:(x.date||"").slice(5),v:x.sessions};}),{trendline:true});
     var lastV=gd[gd.length-1].sessions;
     h+='<div class="card"><div class="ch"><h3>Sessions over time</h3>'+
-      '<span class="note">grey band = usual range · lime = this period · dashed = overall trend</span>'+srcTag(g,"GA4")+'</div><div class="cb">'+
+      '<span class="note">daily sessions</span>'+srcTag(g,"GA4")+'</div><div class="cb">'+
       (t?t.svg:building("GA4",gd.length))+
       (t?'<div class="foot'+(lastV>=t.lo&&lastV<=t.hi?"":" warn")+'">'+
         (lastV>=t.lo&&lastV<=t.hi
@@ -873,7 +885,7 @@ function website(){
         (chS[0]?"On the biggest channel ("+esc(chS[0].channel)+") engagement is "+(benchPos(chS[0].er,IB.engRate.lo,IB.engRate.hi).warn?"below":"at/above")+" the "+IB.engRate.lo+"–"+IB.engRate.hi+"% benchmark ("+chS[0].er+"%).":"")+'</div>'+
         benchLegend()+
         channelLegend(chS.map(function(c){return c.channel;}))+
-        '<div class="foot">To see <b>which pages each channel sends people to</b> — the driver behind each channel — the GA4 pull needs one more report (landing-page × channel). Flagged for the data layer; not in the feed yet. The landing-pages panel below is the closest current view of what\'s driving sessions.</div>'+
+        '<div class="foot">Which pages each channel drives to isn\'t in the feed yet — the landing-pages panel below is the closest view for now.</div>'+
         '</div></div>';
     } else {
       var chans=agg?agg.channels:((!PV&&g.data&&g.data.channels)||[]);
@@ -1165,7 +1177,7 @@ function linkedin(){
   var folW=winMonths((seed.followers_monthly||[]).concat(ups.map(function(u){return [u.month||u.period,o(u.followers).total];})));
   if(folW.series.length>1){
     var tf=trend(folW.series,{trendline:true});
-    h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Total followers over time</h3><span class="note">monthly · dashed = overall trend'+winNote(folW)+'</span>'+upTag+'</div><div class="cb">'+
+    h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Total followers over time</h3><span class="note">monthly'+winNote(folW)+'</span>'+upTag+'</div><div class="cb">'+
       (tf?tf.svg:"")+
       '<div class="foot"><b>181 → '+num(F.total)+'</b> ('+(F.since_start_pct?"+"+F.since_start_pct+"%":"")+' since Aug ’24). Follows the date range at the top; each monthly upload adds a real point on the right.</div>'+
       '</div></div>';
@@ -1216,7 +1228,7 @@ function linkedin(){
   var engW=winMonths((seed.engagement_monthly||[]).concat(ups.filter(function(u){return u.engagement_rate!=null;}).map(function(u){return [u.month||u.period,u.engagement_rate];})));
   if(engW.series.length>1){
     var te=trend(engW.series,{trendline:true,benchmark:(B.company_high||3),benchmarkLabel:"industry "+(B.company_low||1)+"–"+(B.company_high||3)+"%",fmt:function(v){return v+"%";}});
-    h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Engagement rate over time</h3><span class="note">monthly · dashed = trend · flat line = industry '+(B.company_low||1)+'–'+(B.company_high||3)+'% benchmark'+winNote(engW)+'</span>'+upTag+'</div><div class="cb">'+
+    h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Engagement rate over time</h3><span class="note">monthly · benchmark '+(B.company_low||1)+'–'+(B.company_high||3)+'%'+winNote(engW)+'</span>'+upTag+'</div><div class="cb">'+
       (te?te.svg:"")+
       '<div class="foot">HDI averages well above the '+(B.company_low||1)+'–'+(B.company_high||3)+'% industry range — roughly <b>4×</b> a typical B2B company page. Follows the date range at the top.</div>'+
       '</div></div>';
@@ -1475,7 +1487,7 @@ function insights(){
   /* ---------- TRAFFIC TREND (with dashed trend line) ---------- */
   var t=trend(cur.map(function(d){return {label:(d.date||"").slice(5),v:d.sessions};}),{trendline:true});
   h+='<div class="card" style="margin-bottom:12px"><div class="ch"><h3>Traffic trend</h3>'+
-    '<span class="note">GA4 sessions per day · dashed teal = overall trend · '+esc(span)+'</span>'+srcTag(S.sources.ga4,"GA4")+'</div><div class="cb">'+
+    '<span class="note">GA4 sessions per day · '+esc(span)+'</span>'+srcTag(S.sources.ga4,"GA4")+'</div><div class="cb">'+
     (t?t.svg:building("GA4",n))+
     '<div class="kpis" style="margin-top:12px">'+
       kpi("VS PRIOR PERIOD",pctTxt(mom),mom!=null?(num(s30)+" vs "+num(s30p)+" sessions"):"no prior period in range",null,mix(sp(),mom==null?{}:(mom<0?{warn:true}:{ok:true})))+
@@ -1508,7 +1520,7 @@ function insights(){
   var engSeries=cur.map(function(d){return {label:(d.date||"").slice(5),v:(d.sessions>0?Math.round(d.engaged/d.sessions*100):null)};});
   var te=trend(engSeries,{trendline:true,fmt:function(v){return v+"%";}});
   h+='<div class="card" style="margin-bottom:12px"><div class="ch"><h3>Engagement trend over time</h3>'+
-    '<span class="note">GA4 engaged-session rate per day · dashed = overall trend</span>'+srcTag(S.sources.ga4,"GA4")+'</div><div class="cb">'+
+    '<span class="note">GA4 engaged-session rate per day</span>'+srcTag(S.sources.ga4,"GA4")+'</div><div class="cb">'+
     (te?te.svg:building("GA4",n))+
     '<div class="foot">Engagement rate rose from '+(engRateP!=null?Math.round(engRateP)+"%":"—")+' to '+(engRate!=null?engRate.toFixed(0)+"%":"—")+' over '+esc(span)+' — a clear climb. Industry reference is '+IB.engRate.lo+'–'+IB.engRate.hi+'% ('+esc(IB.engRate.src.split("—")[0].trim())+').</div>'+
     '</div></div>';
