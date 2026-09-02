@@ -140,10 +140,14 @@ Any new user-facing string must read for a non-technical exec. Log the technical
 
 ## CHART KEY + TERSE COPY (Henry Sep 2) — do not regress
 - **`chartKey(opts)`** renders a plain line key and `trend()` appends it to EVERY chart's svg, so
-  every line chart on the dashboard shows the same key automatically: green swatch **This period**,
-  grey swatch **Usual range**, dashed **Trend** (when `opts.trendline`), dashed **Benchmark** (when
-  `opts.benchmark`). Never leave a chart's colours unlabelled; new charts on `trend()` get it free.
-  Because the key is universal, chart header `.note`s must NOT repeat "grey band =/lime =/dashed =".
+  every line chart shows the same key automatically. Labels lead with the COLOUR WORD a non-designer
+  actually says (Henry Sep 2 — "blue, grey, green needs 100% context"): green swatch **Green line = this
+  period**, grey swatch **Grey band = normal range**, teal-dashed **Blue dashes = trend** (when
+  `opts.trendline`), teal-solid **Blue line = benchmark** (when `opts.benchmark`). Teal reads as "blue"
+  to leadership — name it blue, not teal. Benchmark line is now SOLID (`.bmk` no dasharray) so it never
+  collides with the dashed trend line on the one chart that shows both (LinkedIn engagement). Never leave
+  a chart's colours unlabelled; new charts on `trend()` get it free. Because the key is universal, chart
+  header `.note`s must NOT repeat "grey band =/lime =/dashed =".
 - **Copy is terse.** Context blurbs are short and scannable, not paragraphs. `CHANNEL_DEF` is
   keyword-length ("Direct = typed or bookmarked"), `channelLegend()` is one ` · `-joined line, and
   chart notes carry only what the key doesn't. Keep new explanatory copy short and direct.

@@ -143,7 +143,7 @@ svg.cv{width:100%;height:auto;display:block;overflow:visible}
 .axy{font-family:var(--m);font-size:8px;fill:var(--mute)}
 .ln{fill:none;stroke:var(--lime);stroke-width:2.5;stroke-linejoin:round}
 .bnd{fill:var(--track);opacity:.8}
-.bmk{stroke:var(--teal);stroke-width:1.5;stroke-dasharray:5 3;fill:none}
+.bmk{stroke:var(--teal);stroke-width:1.5;fill:none}
 .dt{fill:var(--teal)}
 .vl{font-family:var(--m);font-size:10px;fill:var(--teal);font-weight:600}
 svg.cv{cursor:crosshair}
@@ -363,12 +363,12 @@ function PREVIEW(){
    trend/benchmark — so no one guesses what a colour means. Terse by design. */
 function chartKey(opts){
   opts=opts||{};
-  function sw(css){return '<span style="display:inline-block;width:16px;'+css+';vertical-align:middle;margin-right:5px"></span>';}
-  var it=[sw('height:3px;background:var(--lime);border-radius:2px')+'This period',
-          sw('height:10px;background:var(--track);border-radius:2px')+'Usual range'];
-  if(opts.trendline)it.push(sw('height:0;border-top:2px dashed var(--teal)')+'Trend');
-  if(opts.benchmark!=null)it.push(sw('height:0;border-top:2px dashed var(--teal)')+'Benchmark');
-  return '<div class="foot" style="display:flex;gap:6px 16px;flex-wrap:wrap;margin-top:8px;align-items:center">'+
+  function sw(css){return '<span style="display:inline-block;width:18px;'+css+';vertical-align:middle;margin-right:6px;flex:none"></span>';}
+  var it=[sw('height:3px;background:var(--lime);border-radius:2px')+'<b>Green line</b> = this period',
+          sw('height:11px;background:var(--track);border-radius:2px')+'<b>Grey band</b> = normal range'];
+  if(opts.trendline)it.push(sw('height:0;border-top:2px dashed var(--teal)')+'<b>Blue dashes</b> = trend');
+  if(opts.benchmark!=null)it.push(sw('height:2px;background:var(--teal)')+'<b>Blue line</b> = benchmark');
+  return '<div class="foot" style="display:flex;gap:5px 18px;flex-wrap:wrap;margin-top:9px;align-items:center;font-size:11.5px">'+
     it.map(function(x){return '<span style="display:inline-flex;align-items:center;white-space:nowrap">'+x+'</span>';}).join('')+'</div>';
 }
 function trend(series,opts){
@@ -612,7 +612,7 @@ function board(){
       return {label:(x.date||"").slice(5),v:(x.pipeline&&x.pipeline.open_pipeline)!=null?x.pipeline.open_pipeline:null};
     }),{fmt:money,trendline:true});
     if(t)h+='<div class="card" style="margin-bottom:12px"><div class="ch"><h3>Open pipeline over time</h3>'+
-      '<span class="note">point-in-time · grey band is the usual range</span>'+srcTag(hs,"HubSpot")+
+      '<span class="note">point-in-time snapshots</span>'+srcTag(hs,"HubSpot")+
       '</div><div class="cb">'+t.svg+
       '<div class="foot">Each point is that day\'s open pipeline as it stood. These are snapshots, not additive — the line shows movement, never a running total.</div>'+
       '</div></div>';
@@ -1185,7 +1185,7 @@ function linkedin(){
   var visW=winMonths(seed.visitors_monthly);
   if(visW.series.length>1){
     var tv=trend(visW.series,{trendline:true});
-    h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Unique visitors over time</h3><span class="note">monthly · dashed = trend'+winNote(visW)+'</span>'+upTag+'</div><div class="cb">'+(tv?tv.svg:"")+
+    h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Unique visitors over time</h3><span class="note">monthly'+winNote(visW)+'</span>'+upTag+'</div><div class="cb">'+(tv?tv.svg:"")+
       '<div class="foot">Page visitors over the selected range. Extends once visitor counts are included in the monthly upload.</div></div></div>';
   }
   var loc=cur.demographics_location||[];
@@ -1236,7 +1236,7 @@ function linkedin(){
   var impW=winMonths((seed.impressions_monthly||[]).concat(ups.map(function(u){return [u.month||u.period,o(o(u.profile).impressions).value];})));
   if(impW.series.length>1){
     var ti=trend(impW.series,{trendline:true});
-    h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Impressions per month</h3><span class="note">monthly · dashed = trend'+winNote(impW)+'</span>'+upTag+'</div><div class="cb">'+(ti?ti.svg:"")+
+    h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Impressions per month</h3><span class="note">monthly'+winNote(impW)+'</span>'+upTag+'</div><div class="cb">'+(ti?ti.svg:"")+
       '<div class="foot">Total reach each reporting period. This line builds one point per monthly upload.</div></div></div>';
   }
   var pt=(L.post_types||[]).slice().sort(function(a,b){return b.er-a.er;});
