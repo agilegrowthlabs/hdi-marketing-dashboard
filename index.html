@@ -944,15 +944,11 @@ function website(){
     var devTxt=(ct&&ct.botDevices.length)?ct.botDevices.slice(0,2).map(function(x){return x.label;}).join(", "):"";
     h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Human vs bot traffic · Clarity</h3>'+
       '<span class="note">'+esc(win)+' · human vs bot</span>'+srcTag(c,"Clarity")+'</div><div class="cb">'+
-      '<div class="kpis" style="margin-bottom:12px">'+
-        kpi("HUMAN SESSIONS",num(qReal),"real visitors Clarity tracked",null,mix(sp(),{hi:true}))+
-        kpi("BOT SESSIONS",num(qBot),"filtered as automated",null,sp())+
-        kpi("TOTAL VISITORS",num(qTot),"human + bot combined",null,sp())+
-      '</div>'+
+      '<div class="foot" style="margin-bottom:10px">Of <b>'+num(qTot)+'</b> raw visitors, <b>'+num(qBot)+' ('+(qTot?Math.round(qBot/qTot*100):0)+'%) were bots</b> — every human number on this page already excludes them. This panel is a data-quality check, not a traffic metric.</div>'+
       bars([["Human",qReal,"var(--teal)"],["Bot",qBot,"var(--warn)"]])+
       (topB&&topB.bot>0?'<div class="foot warn" style="margin-top:12px">Nearly all bot traffic enters through a single bucket — <b>'+esc(topB.label)+'</b>: '+topB.bot+' bot vs '+topB.real+' human sessions.'+
         (devTxt?' These fingerprint as automated clients ('+esc(devTxt)+') that register zero human visits.':'')+'</div>':'')+
-      '<div class="foot">Filter: <b>'+(INCLBOTS?"all traffic (bots included)":"human only (bots excluded)")+'</b> — toggle "Include bots" in the header to switch the Clarity session figures. <b>Human sessions</b> here is the same bot-filtered number headlined at the top of this tab. Summed over <b>'+esc(win)+'</b> from our stored Clarity history, so it matches the timeframe of the rest of the page. Clarity separates real people from bots; GA4 keeps the fuller session count for channel and page detail.</div>'+
+      '<div class="foot">Currently showing <b>'+(INCLBOTS?"all traffic (bots included)":"human only")+'</b> — toggle "Include bots" in the header to switch every Clarity figure. GA4 keeps the fuller session count for channel and page detail.</div>'+
       '</div></div>';
   }
 
@@ -966,20 +962,22 @@ function website(){
     var rp=function(v){return v!=null?Math.round(v)+"%":"—";};
     var avgLbl=cAgg?("avg over "+winDesc()+" · "+days+" day"+(days===1?"":"s")+" with data"):"latest window";
     var perDay=cAgg?' · avg/day':'';
-    h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Behaviour · Clarity</h3>'+
-      '<span class="note">'+esc(avgLbl)+'</span>'+srcTag(c,"Clarity")+'</div><div class="cb">'+
-      '<div class="kpis" style="margin-bottom:12px">'+
-        kpi("SCROLL DEPTH",rp(CB.scroll_depth),"how far people read"+perDay,null,sp())+
-        kpi("RAGE CLICKS",rp(CB.rage_clicks),"of sessions · frustration signal"+perDay,null,sp())+
-        kpi("DEAD CLICKS",rp(CB.dead_clicks),"of sessions · clicks that do nothing"+perDay,null,sp())+
-        kpi("QUICK BACKS",rp(CB.quickback_clicks),"of sessions · landed and left"+perDay,null,sp())+
-        kpi("DAYS STORED",days?String(days):"—","days with data in range",null,mix(sp(),{hi:true}))+
+    var croSt=function(ok,warn){return mix(sp(), ok?{ok:true}:(warn?{warn:true}:{}));};
+    var SD=CB.scroll_depth,RC=CB.rage_clicks,DC=CB.dead_clicks,QB=CB.quickback_clicks;
+    h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>On-page experience · Clarity</h3>'+
+      '<span class="note">'+esc(avgLbl)+' · where to improve conversions</span>'+srcTag(c,"Clarity")+'</div><div class="cb">'+
+      '<div class="kpis" style="margin-bottom:10px">'+
+        kpi("SCROLL DEPTH",rp(SD),"how far people read · aim 50%+",null,croSt(SD!=null&&SD>=50,SD!=null&&SD<35))+
+        kpi("RAGE CLICKS",rp(RC),"angry repeat-clicks · aim under 2%",null,croSt(RC!=null&&RC<=2,RC!=null&&RC>5))+
+        kpi("DEAD CLICKS",rp(DC),"clicks that do nothing · aim under 5%",null,croSt(DC!=null&&DC<=5,DC!=null&&DC>10))+
+        kpi("QUICK BACKS",rp(QB),"landed and left fast · aim under 10%",null,croSt(QB!=null&&QB<=10,QB!=null&&QB>20))+
       '</div>'+
+      '<div class="foot" style="margin-bottom:4px"><b>Green = healthy · red = worth a fix.</b> These four are the on-page levers the web team can move — a red rage- or dead-click rate usually points to a broken link or a confusing layout on that page.</div>'+
       ((CB.engagement_time!=null||cw||ct||(cm&&cm.traffic!=null))?
         '<table><tbody>'+
         ((cw||ct)?'<tr><td>Sessions</td><td class="n">'+num(cw?(INCLBOTS?cw.total:cw.real):(INCLBOTS?ct.total:ct.real))+' <span style="color:var(--mute);font-size:10px">'+(INCLBOTS?"all traffic · incl "+(cw?cw.bot:ct.bot)+" bots":"human only")+(cw?" · summed over "+esc(winDesc()):"")+'</span></td></tr>':((cm&&cm.traffic!=null)?'<tr><td>Sessions</td><td class="n">'+num(cm.traffic)+'</td></tr>':''))+
-        (CB.engagement_time!=null?'<tr><td>Active engagement</td><td class="n">'+Math.round(CB.engagement_time)+'s'+(cAgg?' <span style="color:var(--mute);font-size:10px">avg/day</span>':'')+'</td></tr>':'')+
-        (CB.script_errors!=null?'<tr><td>Script errors</td><td class="'+(CB.script_errors?"z":"n")+'">'+Math.round(CB.script_errors)+'% of sessions</td></tr>':'')+
+        (CB.engagement_time!=null?'<tr><td>Active engagement <span style="color:var(--mute);font-size:10px">time actively on page</span></td><td class="n">'+Math.round(CB.engagement_time)+'s'+(cAgg?' <span style="color:var(--mute);font-size:10px">avg/day</span>':'')+'</td></tr>':'')+
+        (CB.script_errors!=null?'<tr><td>Script errors <span style="color:var(--mute);font-size:10px">dev flag — not a marketing lever</span></td><td class="n" style="color:var(--mute)">'+Math.round(CB.script_errors)+'% of sessions</td></tr>':'')+
         '</tbody></table>':'')+
       (cHist&&cHist.length>1?(function(){
         var t2=trend(cHist.map(function(x){
@@ -992,7 +990,7 @@ function website(){
       '</div></div>';
   } else {
     var cmd=mode(c);
-    h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>Behaviour · Clarity</h3>'+srcTag(c,"Clarity")+'</div><div class="cb">'+
+    h+='<div class="card" style="margin-top:12px"><div class="ch"><h3>On-page experience · Clarity</h3>'+srcTag(c,"Clarity")+'</div><div class="cb">'+
       empty(cmd==="stub"?"This snapshot predates Clarity going live":"Clarity is not returning data",
         cmd==="stub"
         ? "The served snapshot was built "+esc(ago(S.built_at))+" with <code>mode: \"stub\"</code>, so it predates Clarity's credentials being added. The next scheduled run replaces it.<br><br><b>Do not trigger a run manually just to populate this</b> — it spends up to 4 of the 10 daily Clarity API calls for no gain, and the limit cannot be raised."

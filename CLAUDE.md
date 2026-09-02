@@ -148,6 +148,14 @@ Any new user-facing string must read for a non-technical exec. Log the technical
   collides with the dashed trend line on the one chart that shows both (LinkedIn engagement). Never leave
   a chart's colours unlabelled; new charts on `trend()` get it free. Because the key is universal, chart
   header `.note`s must NOT repeat "grey band =/lime =/dashed =".
+- **Website Clarity section is CRO-framed (Henry Sep 2 — "conversion optimization insights the web
+  team can act on").** The old HUMAN/BOT/TOTAL triple-KPI row was killed — it duplicated the Website
+  top bar; now one line states the bot % as a data-quality check + the human/bot bar. "Behaviour ·
+  Clarity" renamed **"On-page experience · Clarity — where to improve conversions"**; the 4 levers
+  (scroll depth, rage/dead/quick-back) each carry an `aim X%` target and go green (healthy) / red (fix)
+  via `croSt()`. `DAYS STORED` KPI card removed (it's coverage, not a lever — the note already says
+  "N days with data"). **Script errors** is muted + labelled "dev flag — not a marketing lever" (the
+  web team can't fix it), never a red alarm. Do not re-add vanity/plumbing cards to this section.
 - **Copy is terse.** Context blurbs are short and scannable, not paragraphs. `CHANNEL_DEF` is
   keyword-length ("Direct = typed or bookmarked"), `channelLegend()` is one ` · `-joined line, and
   chart notes carry only what the key doesn't. Keep new explanatory copy short and direct.
