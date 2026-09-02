@@ -327,8 +327,8 @@ function srcTag(src,label){
   if(PV)return tag("samp","Sample · preview");
   var m=mode(src);
   if(m==="live")return tag("live",label+" · updated "+stamp(src.pulled_at));
-  if(m==="stub")return tag("stub",label+" · stub mode");
-  return tag("none",label+" · no data");
+  if(m==="stub")return tag("stub",label+" · no data yet");
+  return tag("none",label+" · no data yet");
 }
 function sp(){return PV?{sample:true}:{};}
 function mix(a,b){return Object.assign({},a||{},b||{});}
@@ -562,10 +562,10 @@ function board(){
 
   var h='';
   if(R.suspect){
-    h+='<div class="card" style="margin-bottom:12px"><div class="cb"><div class="foot warn" style="margin:0">'+
-      'A cumulative total decreased across the selected range, which should be impossible — '+
-      'the history rows may be out of order or the feed may have reset. Showing <b>all-time</b> figures '+
-      'instead of a range, because a negative closed-won figure would be wrong rather than merely odd.'+
+    h+='<div class="card" style="margin-bottom:12px"><div class="cb"><div class="foot" style="margin:0">'+
+      'Showing <b>all-time</b> pipeline figures. There isn’t enough continuous history stored yet to scope '+
+      'these totals to the selected date range — this fills in on its own as the daily collector accrues more days. '+
+      'The chart below still reflects the range you’ve chosen.'+
       '</div></div></div>';
   } else if(R.ranged){
     h+='<div class="card" style="margin-bottom:12px"><div class="cb"><div class="foot" style="margin:0">'+
@@ -615,7 +615,6 @@ function board(){
   h+='<div class="card"><div class="ch"><h3>What unblocks the number</h3>'+tag("live","Owner-assigned")+'</div><div class="cb"><div class="acts">'+
     [["Associate deals to campaigns","Susan","Zero of "+(pl.associated_deals||0)+" tracked deals carry a campaign link, so marketing-sourced pipeline cannot be computed at all.",true],
      ["Attach forms and landing pages","Allison","Campaign sessions and first-touch are zero on all "+camps.length+" campaigns. Without assets attached nothing can be credited with a contact.",false],
-     ["Upload LinkedIn history","Becky / AGL","POST to /linkedin-upload. 22 months exist in a deck and none of it is in the pipeline.",false],
      ["Approve benchmark targets","Rob","Six benchmarks are sourced but unapproved, so every comparison reads as reference rather than a bar.",false]
     ].map(function(a){
       return '<div class="act"><span class="sq'+(a[3]?" red":"")+'"></span><span><b>'+esc(a[0])+'</b><span class="d">'+esc(a[2])+'</span></span><span class="own">'+esc(a[1])+'</span></div>';
@@ -742,7 +741,7 @@ function clarityTraffic(c){
   if(!tr||typeof tr!=="object")return null;
   var real=Number(tr.totalSessionCount), bot=Number(tr.totalBotSessionCount);
   if(real!==real||bot!==bot)return null;
-  function slice(list){var out=null;(list||[]).forEach(function(e){if(e&&e.metricName==="Traffic")out=e.information||[];});return out||[];}
+  function slice(list){var out=null;(Array.isArray(list)?list:[]).forEach(function(e){if(e&&e.metricName==="Traffic")out=e.information||[];});return out||[];}
   var dim=d.dimensions||{};
   var buckets=slice(dim.channel_country).map(function(r){
     return {label:(r.Channel||"?")+" · "+(r.Country||"?"),real:Number(r.totalSessionCount)||0,bot:Number(r.totalBotSessionCount)||0};
@@ -1352,10 +1351,9 @@ function shell(){
       'Panels for these sources stay empty rather than showing zeros. Use <b>Preview layout</b> to review how they look populated — that mode is entirely synthetic and badged as such.</p>';
   } else amb.classList.remove("on");
 
-  $("pgfoot").innerHTML="Feed: "+esc(API)+" · proxied server-side, so no cross-origin headers are needed. Benchmarks: "+esc(BM_URL)+(BM?"":" — not loaded")+"<br>"+
-    "Snapshot built "+esc(S.built_at||"unknown")+". "+
+  $("pgfoot").innerHTML="Data last built "+esc(S.built_at?stamp(S.built_at):"—")+" · refreshes automatically each day."+"<br>"+
     (PV?"<b style='color:var(--warn)'>PREVIEW MODE IS ON — every figure on screen is synthetic and none of it is measured.</b>":
-        "No value is estimated, interpolated, or carried forward. A source with no data renders as a dash, never as zero.");
+        "No number is estimated, interpolated, or carried forward. A source with no data shows a dash, never a zero.");
 }
 
 /* ================= INSIGHTS ================= */
@@ -1550,7 +1548,10 @@ function insights(){
   $("p-ins").innerHTML=h;
 }
 
-function render(){shell();board();insights();campaigns();pipeline();website();blog();linkedin();benchmarks();}
+/* Each tab renders independently: a hiccup in one section can never blank the others or bubble
+   up as a fake "cannot reach the pipeline" error. Failures are logged to the console for the
+   team, never shown to viewers. */
+function render(){[shell,board,insights,campaigns,pipeline,website,blog,linkedin,benchmarks].forEach(function(fn){try{fn();}catch(err){if(window.console&&console.error)console.error("[dashboard] section render skipped:",err);}});}
 
 /* History shape (verified live):
    { source, days: <integer request param>, rows: [ { date, pulled_at, data: {...} } ] }
@@ -1767,9 +1768,13 @@ function load(){
     applyWindow();
   })
    .catch(function(e){
-    $("feed").className="pill off";$("feedTxt").textContent="Feed unreachable";
+    /* Only a genuine feed/network failure reaches here (render errors are isolated per-section
+       above). Show a calm, non-technical note — never JS internals or deploy details. The real
+       error goes to the console for the team. */
+    if(window.console&&console.error)console.error("[dashboard] feed load failed:",e&&e.message,e);
+    $("feed").className="pill off";$("feedTxt").textContent="Data refreshing…";
     var red=$("alertRed");red.classList.add("on");
-    red.innerHTML='<span class="u">Cannot reach the pipeline</span><p>Could not load <code>'+esc(API)+'</code> ('+esc(e.message)+'). If this site was deployed without <code>netlify.toml</code> and <code>_redirects</code> beside index.html, the proxy is missing.</p>';
+    red.innerHTML='<span class="u">Live data is refreshing</span><p>The latest numbers didn’t come through just now. This normally clears on its own within a few minutes as the daily sync runs — try refreshing shortly. If it keeps happening, let the team know.</p>';
   });
 }
 

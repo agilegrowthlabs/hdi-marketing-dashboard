@@ -123,6 +123,21 @@ Last substantive update: 2026-08-24 — Verona 1:1 dashboard changes (below).
   then a place in the feed for it. LinkedIn historical follower + post-level spreadsheets still
   pending from Verona.
 
+## LEADERSHIP-FACING ERROR HANDLING (Henry Sep 2) — do not regress
+This dashboard is shown to the board/leadership, so NEVER surface developer text to viewers —
+no JS error messages, stack traces, `netlify.toml`/proxy hints, `mode:"stub"`, API paths, or
+"history rows out of order / feed reset" diagnostics. Rules now baked in, keep them:
+- `render()` runs each section in its own try/catch (`[shell,board,…].forEach(try fn)`), so one
+  section failing can NEVER blank the others or bubble up as a fake "cannot reach the pipeline".
+  Section errors go to `console.error`, never to the screen.
+- The `load()` `.catch` fires ONLY for a real feed/network failure and shows a calm
+  "Live data is refreshing" note (no `e.message`, no deploy details). Real error → console only.
+- Clarity `slice()` is `Array.isArray`-guarded (the original forEach-on-non-array bug).
+- The Board "cumulative decreased" state shows a neutral "Showing all-time … not enough continuous
+  history yet" note — not "impossible / out of order / feed reset / negative closed-won".
+- Footer + source badges are plain-language ("no data yet", "Data last built …"), no API paths.
+Any new user-facing string must read for a non-technical exec. Log the technical detail to console.
+
 ## STATUS — READ THIS FIRST
 - Live at https://hdi-marketing-dashboard.netlify.app and the code on `main` matches it
   exactly. Always `git pull` and build on the CURRENT `main`. Do NOT resurrect an older
